@@ -16,6 +16,9 @@ spec:
     spec:
       project: default
       source:
+        helm:
+          valueFiles:
+          - values.yaml
         repoURL: https://github.com/rmallam/gitops-openshift.git
         targetRevision: HEAD
         path: '{{ "{{" }}path{{ "}}" }}'

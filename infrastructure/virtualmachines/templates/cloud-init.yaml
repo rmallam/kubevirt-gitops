@@ -52,7 +52,7 @@ stringData:
       list: |
         rakesh:rakesh
         pydev:rakesh
-
+    hostname: fedora-vm-primary-site
     # Set permissions on /etc/ssh/sshd_config
     write_files:
       - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
