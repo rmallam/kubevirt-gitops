@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: infra-application-set
+  namespace: openshift-gitops
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/rmallam/gitops-openshift.git
+        revision: HEAD
+        directories:
+          - path: "infrastructure/**"
+  template:
+    metadata:
+      name: '{{ "{{" }}path.basename{{ "}}" }}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/rmallam/gitops-openshift.git
+        targetRevision: HEAD
+        path: '{{ "{{" }}path{{ "}}" }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ "{{" }}path.basename{{ "}}" }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - Validate=true
+          - CreateNamespace=true

@@ -1,0 +1,39 @@
+# apiVersion: argoproj.io/v1alpha1
+# kind: ApplicationSet
+# metadata:
+#   name: list-based-appset  # Changed name to avoid conflicts
+#   namespace: openshift-gitops
+# spec:
+#   generators:
+#     - list:
+#         elements:
+#           {{- range .Values.apps }}
+#           {{- if eq .enabled true }}
+#           - name: {{ .name }}
+#             namespace: {{ .namespace }}
+#           {{- end }}
+#           {{- end }}
+#   template:
+#     metadata:
+#       name: 'list-{{ "{{" }}name{{ "}}" }}'  # Added prefix for uniqueness
+#       finalizers:
+#         - resources-finalizer.argocd.argoproj.io
+#     spec:
+#       project: default
+#       source:
+#         repoURL: https://github.com/rmallam/gitops-openshift.git
+#         targetRevision: HEAD
+#         path: '{{ "{{" }}name{{ "}}" }}'
+#       destination:
+#         name: in-cluster
+#         namespace: '{{ "{{" }}namespace{{ "}}" }}'
+#       syncPolicy:
+#         automated:
+#           prune: true
+#           selfHeal: true
+#           allowEmpty: false
+#         syncOptions:
+#           - Validate=true
+#           - CreateNamespace=true
+#           - PrunePropagationPolicy=foreground
+#           - PruneLast=true

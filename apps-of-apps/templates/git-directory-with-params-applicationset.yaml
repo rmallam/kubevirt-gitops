@@ -1,0 +1,60 @@
+# apiVersion: argoproj.io/v1alpha1
+# kind: ApplicationSet
+# metadata:
+#   name: bootstrap-appset-with-params
+#   namespace: openshift-gitops
+# spec:
+#   goTemplate: true  # Enable Go templating for more advanced logic
+#   generators:
+#     - git:
+#         repoURL: https://github.com/rmallam/gitops-openshift.git
+#         revision: HEAD
+#         directories:
+#             - path: "apps/**"
+#               recurse: true
+#         #   {{- range .Values.apps }}
+#         #   {{- if eq .enabled true }}
+#         #   - path: {{ .name }}
+#         #     recurse: {{ .recurse | default false }}
+#         #     {{- if .exclude }}
+#         #     exclude: {{ .exclude }}
+#         #     {{- end }}
+#         #   {{- end }}
+#         #   {{- end }}
+#         # # Add parameter overrides for namespaces
+#         pathParamPrefix: path
+#   template:
+#     metadata:
+#       name: '{{ "{{" }}.path.basename{{ "}}" }}'
+#       finalizers:
+#         - resources-finalizer.argocd.argoproj.io
+#     spec:
+#       project: default
+#       source:
+#         repoURL: https://github.com/rmallam/gitops-openshift.git
+#         targetRevision: HEAD
+#         path: '{{ "{{" }}.path{{ "}}" }}'
+#         directory:
+#           recurse: false
+#       destination:
+#         name: in-cluster
+#         namespace: '{{ "{{" }}.path.basename{{ "}}" }}'
+#       syncPolicy:
+#         automated:
+#           prune: true
+#           selfHeal: true
+#           allowEmpty: false
+#         syncOptions:
+#           - Validate=true
+#           - CreateNamespace=true
+#           - PrunePropagationPolicy=foreground
+#           - PruneLast=true
+#   # # Define parameter overrides for specific paths
+#   # applicationParameterOverrides:
+#   #   {{- range .Values.apps }}
+#   #   {{- if and .enabled .namespace }}
+#   #   - pathPattern: "{{ .name }}"
+#   #     parameters:
+#   #       namespace: {{ .namespace }}
+#   #   {{- end }}
+#   #   {{- end }}

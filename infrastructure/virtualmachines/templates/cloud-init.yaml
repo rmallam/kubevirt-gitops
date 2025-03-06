@@ -1,0 +1,323 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudsecret
+  labels:
+    app.kubernetes.io/name: python-app-vm
+    app.kubernetes.io/part-of: python-app
+stringData:
+  userdata: |
+    #cloud-config
+    # Disable SELinux to avoid permission issues
+    bootcmd:
+    - setenforce 0
+
+    # Update system packages
+    package_update: true
+    package_upgrade: true
+    packages:
+      - git
+      - python3
+      - python3-pip
+      - python3-devel
+      - gcc
+      - firewalld
+      - openssh-server
+      - jq
+      - curl
+
+    # Password authentication for SSH
+    ssh_pwauth: true
+
+    # Configure users with proper password settings
+    users:
+      - name: rakesh
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/rakesh
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+      - name: pydev
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/pydev
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+
+    # Ensure password auth works
+    chpasswd:
+      expire: false
+      list: |
+        rakesh:rakesh
+        pydev:rakesh
+
+    # Set permissions on /etc/ssh/sshd_config
+    write_files:
+      - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
+        content: |
+          PasswordAuthentication yes
+          PermitRootLogin yes
+      - path: /home/pydev/app/app.py
+        content: |
+          from flask import Flask, render_template
+          import socket
+          import os
+          import json
+          from kubernetes import client, config
+
+          app = Flask(__name__)
+
+          def get_hostname():
+              return socket.gethostname()
+
+          def get_k8s_api_info():
+              try:
+                  # Try to load in-cluster configuration using the mounted service account
+                  try:
+                      # Load from the default service account token path
+                      config.load_incluster_config()
+                      print("Loaded in-cluster config")
+                  except Exception as e:
+                      print(f"Failed to load in-cluster config: {e}")
+                      # Try to load from kubeconfig file if provided
+                      if os.path.exists('/home/pydev/.kube/config'):
+                          config.load_kube_config('/    ')
+                          print("Loaded kube config file")
+                      else:
+                          # Manual configuration as last resort
+                          configuration = client.Configuration()
+                          
+                          # Read the required data from the mounted service account
+                          # These paths will be available if you mount the service account token
+                          with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r') as token_file:
+                              token = token_file.read().strip()
+                          
+                          with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as namespace_file:
+                              namespace = namespace_file.read().strip()
+                          
+                          # Hard-coding the API server URL is necessary if you're in a VM
+                          # Use the Kubernetes service DNS name which resolves inside the cluster
+                          host = os.environ.get('KUBERNETES_SERVICE_HOST', 'kubernetes.default.svc')
+                          port = os.environ.get('KUBERNETES_SERVICE_PORT', '443')
+                          
+                          # Configure the client
+                          configuration.host = f"https://{host}:{port}"
+                          configuration.api_key = {"authorization": f"Bearer {token}"}
+                          
+                          # Skip verification in development/testing (not recommended for production)
+                          configuration.verify_ssl = False
+                          
+                          # Create client with this configuration
+                          api_client = client.ApiClient(configuration)
+                          print("Manually configured API client")
+                  
+                  # Create API client
+                  version_api = client.VersionApi()
+                  version = version_api.get_code()
+                  
+                  core_api = client.CoreV1Api()
+                  # Try to list pods as a test
+                  try:
+                      pods = core_api.list_namespaced_pod(namespace="default")
+                      pod_count = len(pods.items)
+                  except Exception as e:
+                      pod_count = f"Error listing pods: {str(e)}"
+                  
+                  # Get API server info from the configuration
+                  api_server = client.Configuration().host
+                  
+                  return {
+                      "api_server": api_server,
+                      "version": version.git_version,
+                      "build_date": version.build_date,
+                      "platform": version.platform,
+                      "pod_count": pod_count
+                  }
+              except Exception as e:
+                  return {"error": str(e)}
+
+          @app.route('/')
+          def index():
+              hostname = get_hostname()
+              k8s_info = get_k8s_api_info()
+              return render_template('index.html', hostname=hostname, k8s_info=k8s_info)
+
+          if __name__ == '__main__':
+              port = int(os.environ.get('PORT', 8080))
+              app.run(host='0.0.0.0', port=port, debug=True)
+      - path: /home/pydev/app/requirements.txt
+        content: |
+          flask==2.0.1
+          werkzeug<=2.0.3
+          kubernetes==23.6.0
+      - path: /home/pydev/app/templates/index.html
+        content: |
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Kubernetes Info Service</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      max-width: 800px;
+                      margin: 0 auto;
+                      padding: 20px;
+                      line-height: 1.6;
+                  }
+                  h1 {
+                      color: #2c3e50;
+                      text-align: center;
+                  }
+                  .container {
+                      background-color: #f8f9fa;
+                      border-radius: 8px;
+                      padding: 20px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  }
+                  .info-item {
+                      margin-bottom: 10px;
+                  }
+                  .info-label {
+                      font-weight: bold;
+                      color: #3498db;
+                  }
+                  .error {
+                      color: #e74c3c;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Kubernetes Info Service</h1>
+                  
+                  <div class="info-item">
+                      <span class="info-label">Hostname:</span> 
+                      <span>'{{ "{{" }} hostname {{ "}}" }}'</span>
+                  </div>
+                  
+                  <h2>Kubernetes API Server Information</h2>
+                  {% if k8s_info.error is defined %}
+                      <div class="info-item error">
+                          <p>Error retrieving Kubernetes information: '{{ "{{" }} k8s_info.error {{ "}}" }}'</p>
+                      </div>
+                  {% else %}
+                      <div class="info-item">
+                          <span class="info-label">API Server:</span> 
+                          <span>'{{ "{{" }} k8s_info.api_server {{ "}}" }}'</span>
+                      </div>
+                      <div class="info-item">
+                          <span class="info-label">Version:</span> 
+                          <span>'{{ "{{" }} k8s_info.version {{ "}}" }}'</span>
+                      </div>
+                      <div class="info-item">
+                          <span class="info-label">Build Date:</span> 
+                          <span>'{{ "{{" }} k8s_info.build_date {{ "}}" }}'</span>
+                      </div>
+                      <div class="info-item">
+                          <span class="info-label">Platform:</span> 
+                          <span>'{{ "{{" }} k8s_info.platform {{ "}}" }}'</span>
+                      </div>
+                  {% endif %}
+              </div>
+          </body>
+          </html>
+      - path: /home/pydev/app/app.service
+        content: |
+          [Unit]
+          Description=Python Flask Application
+          After=network.target
+
+          [Service]
+          User=pydev
+          WorkingDirectory=/home/pydev/app
+          ExecStart=/usr/bin/python3 -m flask run --host=0.0.0.0 --port=8080
+          Environment="FLASK_APP=app.py"
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      - path: /home/pydev/app/setup-k8s-access.sh
+        content: |
+          #!/bin/bash
+          
+          # Create directory structure
+          mkdir -p /home/pydev/.kube
+          
+          # Get service account token and metadata
+          TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+          CA_CERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          
+          # Kubernetes API is usually available at kubernetes.default.svc
+          API_SERVER="https://kubernetes.default.svc"
+          
+          # Test API connection
+          echo "Testing connection to Kubernetes API..."
+          curl -s --cacert $CA_CERT --header "Authorization: Bearer $TOKEN" $API_SERVER/version
+          
+          # Create kubeconfig file
+          cat > /home/pydev/.kube/config << EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              certificate-authority: $CA_CERT
+              server: $API_SERVER
+            name: kubernetes
+          users:
+          - name: serviceaccount
+            user:
+              token: $TOKEN
+          contexts:
+          - context:
+              cluster: kubernetes
+              user: serviceaccount
+              namespace: $NAMESPACE
+            name: serviceaccount-context
+          current-context: serviceaccount-context
+          EOF
+          
+          # Set proper ownership
+          chown -R pydev:pydev /home/pydev/.kube
+          
+          echo "Kubeconfig created at /home/pydev/.kube/config"
+          
+          # Test kubectl if available
+          if command -v kubectl &> /dev/null; then
+            kubectl get pods
+          fi
+
+    # Run commands to ensure proper setup
+    runcmd:
+      # Fix SSH permissions and restart SSH
+      - systemctl restart sshd
+      
+      # Set up Python app
+      - mkdir -p /home/pydev/app/templates
+      - chown -R pydev:pydev /home/pydev/app
+      - chmod 755 /home/pydev/app
+      
+      # Install Python dependencies with the correct versions
+      - pip3 install --upgrade pip
+      - pip3 install werkzeug==2.0.3 flask==2.0.1 kubernetes==23.6.0
+      
+      # Enable and start the Python service
+      - cp /home/pydev/app/app.service /etc/systemd/system/
+      - systemctl daemon-reload
+      - systemctl enable app.service
+      - systemctl start app.service
+      
+      # Open firewall port
+      - systemctl enable firewalld
+      - systemctl start firewalld
+      - firewall-cmd --permanent --add-port=8080/tcp
+      - firewall-cmd --permanent --add-port=22/tcp
+      - firewall-cmd --reload
+      
+      # Set up Kubernetes API access
+      - chmod +x /home/pydev/app/setup-k8s-access.sh
+      - /home/pydev/app/setup-k8s-access.sh

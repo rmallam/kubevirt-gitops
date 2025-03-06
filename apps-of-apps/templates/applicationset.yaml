@@ -1,0 +1,20 @@
+# {{- range .Values.apps }}
+# {{- if eq .enabled true }}
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: {{ .name }}
+# spec:
+#   destination:
+#     server: 'https://kubernetes.default.svc'
+#   project: default
+#   source:
+#     path: {{ .name }}
+#     repoURL: 'https://github.com/rmallam/OpenShift-gitops.git'
+#     targetRevision: HEAD
+#   syncPolicy:
+#     automated:
+#       selfHeal: true
+# {{- end }}
+# {{- end }}

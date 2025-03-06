@@ -1,0 +1,83 @@
+channel: stable
+version: 4.15.8
+subscriptions:
+  - name: kiali-ossm
+    namespace: openshift-operators
+    channel: stable
+    source: redhat-operators
+    enabled: false
+  - name: servicemeshoperator
+    namespace: openshift-operators
+    channel: stable
+    source: redhat-operators
+    enabled: false
+  - name: amq-streams
+    namespace: openshift-operators
+    channel: stable
+    source: redhat-operators
+    enabled: false
+  - name: patch-operator
+    namespace: patch-operator
+    channel: alpha
+    source: community-operators
+    enabled: false
+  - name: serverless-operator
+    namespace: openshift-serverless
+    channel: stable
+    source: redhat-operators
+    enabled: false
+  - name: advanced-cluster-management
+    namespace: open-cluster-management
+    channel: release-2.10
+    source: redhat-operators
+    enabled: false
+  - name: kubevirt-hyperconverged
+    namespace: openshift-cnv
+    channel: stable
+    source: redhat-operators
+    enabled: true
+  - name: kubernetes-nmstate-operator ## NM state - provides declarative way of managing kube networks
+    namespace: openshift-nmstate
+    channel: stable
+    source: redhat-operators
+    enabled: true
+  - name: local-storage-operator ## localstorage operator - for odf to use local storage from nodes
+    namespace: openshift-local-storage
+    channel: stable
+    source: redhat-operators
+    enabled: true 
+  - name: odf-operator ## odf operator
+    namespace: openshift-storage
+    channel: stable-4.15
+    source: redhat-operators
+    enabled: false
+  - name: grafana-operator ## Deploy Grafana
+    namespace: grafana-operator
+    channel: v4
+    source: community-operators
+    enabled: false
+
+
+acm:  ## Deploy multiclusterhub CRD 
+  enabled: false
+acs:
+  enabled: false
+sealedsecrets:
+  enabled: false ## learn here
+gitops:
+  enabled: false
+knative:
+  enabled: false
+kafka:
+  enabled: false
+  dedicatedNode: false
+manageclustersonargo:  ## Add the hosted/managed clusters to argocd. clusterset defined for now is managed
+   enabled: false
+hyperconverged:  ## Deploy openshift virt 
+   enabled: true
+managedclusterset:
+    enable: false
+hostedclusterocpvirt:
+   enabled: false
+multiclusterhub:
+   enabled: false
