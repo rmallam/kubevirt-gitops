@@ -25,6 +25,8 @@ stringData:
       - openssh-server
       - jq
       - curl
+      - util-linux
+      - lsscsi
 
     # Password authentication for SSH
     ssh_pwauth: true
@@ -235,14 +237,53 @@ stringData:
       # Create mount point directory
       - mkdir -p /opt/logs
       
-      # Format the disk if it's not already formatted (first time only)
-      - blkid /dev/vdb || mkfs -t ext4 /dev/vdb
+      # List all block devices for debugging
+      - echo "Listing all block devices:"
+      - ls -la /dev/vd*
+      - lsblk
       
-      # Add entry to /etc/fstab for persistent mounting
-      - grep -q "/dev/vdb" /etc/fstab || echo "/dev/vdb /opt/logs ext4 defaults 0 0" >> /etc/fstab
-      
-      # Mount the persistent volume
-      - mount -a || mount /dev/vdb /opt/logs
+      # Find the correct device for our persistent volume
+      # In KubeVirt, devices are usually named /dev/vdX where X is a letter
+      # We need to find the one that's not already in use (not root and not cloud-init)
+      - |
+        for dev in /dev/vdc /dev/vdd /dev/vde; do
+          if [ -b "$dev" ]; then
+            echo "Found potential log device: $dev"
+            # Check if it's not already mounted or used by something else
+            if ! mount | grep -q "$dev"; then
+              echo "Device $dev is not mounted, using it for logs"
+              LOG_DEVICE="$dev"
+              break
+            fi
+          fi
+        done
+        
+        if [ -z "$LOG_DEVICE" ]; then
+          echo "ERROR: Could not find suitable device for logs"
+          LOG_DEVICE="/dev/vdc"  # Fallback to a likely device name
+        fi
+        
+        echo "Selected log device: $LOG_DEVICE"
+        
+        # Format the disk if it's not already formatted
+        if ! blkid $LOG_DEVICE | grep -q ext4; then
+          echo "Formatting $LOG_DEVICE with ext4"
+          mkfs.ext4 -F $LOG_DEVICE
+        fi
+        
+        # Add entry to /etc/fstab for persistent mounting
+        if ! grep -q "$LOG_DEVICE" /etc/fstab; then
+          echo "$LOG_DEVICE /opt/logs ext4 defaults 0 0" >> /etc/fstab
+        fi
+        
+        # Mount the persistent volume
+        mount $LOG_DEVICE /opt/logs || mount -a
+        
+        # Exit with error if mount failed
+        if ! mount | grep -q "/opt/logs"; then
+          echo "ERROR: Failed to mount log volume"
+          exit 1
+        fi
       
       # Set proper permissions
       - chown -R pydev:pydev /opt/logs
@@ -261,6 +302,13 @@ stringData:
       - touch /opt/logs/requests.log
       - chown pydev:pydev /opt/logs/requests.log
       - chmod 644 /opt/logs/requests.log
+      
+      # Add mount info to Python app log for debugging
+      - echo "--- Mount Information ---" > /opt/logs/mount-info.log
+      - mount >> /opt/logs/mount-info.log
+      - echo "--- Block Devices ---" >> /opt/logs/mount-info.log
+      - lsblk >> /opt/logs/mount-info.log
+      - ls -la /dev/vd* >> /opt/logs/mount-info.log
       
       # Enable and start the Python service
       - cp /home/pydev/app/app.service /etc/systemd/system/
