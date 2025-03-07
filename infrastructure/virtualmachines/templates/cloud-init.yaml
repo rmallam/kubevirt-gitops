@@ -52,7 +52,6 @@ stringData:
       list: |
         rakesh:rakesh
         pydev:rakesh
-    hostname: {{ .Values.hostname }}
     # Set permissions on /etc/ssh/sshd_config
     write_files:
       - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
@@ -76,12 +75,13 @@ stringData:
           def log_request(request):
               """Log the incoming request with timestamp and client info"""
               timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+              hostname = get_hostname()
               client_ip = request.remote_addr
               request_method = request.method
               request_path = request.path
               user_agent = request.headers.get('User-Agent', 'Unknown')
               
-              log_line = f"{timestamp} | {client_ip} | {request_method} {request_path} | {user_agent}\n"
+              log_line = f"{timestamp} | {hostname} | {client_ip} | {request_method} {request_path} | {user_agent}\n"
               
               # Ensure the log directory exists
               os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
@@ -227,6 +227,7 @@ stringData:
 
     # Run commands to ensure proper setup
     runcmd:
+      - hostname: {{ .Values.hostname }}
       # Fix SSH permissions and restart SSH
       - systemctl restart sshd
       
