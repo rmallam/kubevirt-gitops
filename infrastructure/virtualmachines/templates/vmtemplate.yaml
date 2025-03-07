@@ -69,7 +69,6 @@ spec:
               name: cloudinitdisk
             - disk:
                 name: kube-api-access
-                virtiofs: {}
           interfaces:
             - masquerade: {}
               model: virtio
