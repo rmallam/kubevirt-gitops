@@ -92,7 +92,7 @@ stringData:
               
               return log_line
               
-          def get_last_logs(n=20):
+          def get_last_logs(n=100):
               """Get the last n lines from the log file"""
               try:
                   if not os.path.exists(LOG_FILE):
@@ -112,7 +112,7 @@ stringData:
               
               # Get hostname and last logs
               hostname = get_hostname()
-              last_logs = get_last_logs(20)
+              last_logs = get_last_logs(100)
               
               return render_template('index.html', hostname=hostname, logs=last_logs)
           
@@ -198,7 +198,7 @@ stringData:
                       <span>'{{ "{{" }} hostname {{ "}}" }}'</span>
                   </div>
                   
-                  <h2>Last 20 HTTP Requests</h2>
+                  <h2>Last 100 HTTP Requests</h2>
                   <div class="log-container">
                   {% for log in logs %}
                       <div class="log-entry">'{{ "{{" }} log {{ "}}" }}'</div>
