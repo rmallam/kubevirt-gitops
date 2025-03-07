@@ -36,7 +36,21 @@ spec:
         kubevirt.io/domain: {{ include "virtualmachines.fullname" . }}
         kubevirt.io/size: {{ .Values.source.flavorsize }}
     spec:
-    {{- if eq .Values.access.ssh.enabled true }}
+      # Add nodeSelector to select which nodes to schedule the VM on
+      nodeSelector:
+        # You can use values from the Helm chart
+        {{- if .Values.nodeSelector }}
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+        {{- else }}
+        # Or hardcode specific selector(s) here if values aren't provided
+        site: primary
+        # Uncomment and adjust any of the following example selectors as needed
+        # region: us-east-1
+        # disktype: ssd
+        # kubernetes.io/arch: amd64
+        {{- end }}
+        
+      {{- if eq .Values.access.ssh.enabled true }}
       accessCredentials:
         - sshPublicKey:
             propagationMethod:

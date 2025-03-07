@@ -108,7 +108,8 @@ service:
     - port: 8080
       protocol: TCP
 
-nodeSelector: {}
+nodeSelector:
+  site: primary
 
 tolerations: []
 
