@@ -63,7 +63,7 @@ stringData:
           PermitRootLogin yes
       - path: /home/pydev/app/app.py
         content: |
-          from flask import Flask, render_template, request
+          from flask import Flask, render_template, request, redirect, url_for
           import socket
           import os
           import datetime
@@ -95,6 +95,20 @@ stringData:
                   log_file.write(log_line)
               
               return log_line
+
+          def log_user_message(message):
+              """Log a user-submitted message"""
+              timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+              hostname = get_hostname()
+              
+              # Format the log entry
+              log_line = f"{timestamp} | {hostname} | USER_MESSAGE | {message}\n"
+              
+              # Append to log file
+              with open(LOG_FILE, 'a') as log_file:
+                  log_file.write(log_line)
+              
+              return log_line
               
           def get_last_logs(n=100):
               """Get the last n lines from the log file"""
@@ -119,6 +133,18 @@ stringData:
               last_logs = get_last_logs(100)
               
               return render_template('index.html', hostname=hostname, logs=last_logs)
+          
+          @app.route('/submit', methods=['POST'])
+          def submit():
+              # Get the user message from the form
+              user_message = request.form.get('user_message', '')
+              
+              if user_message:
+                  # Log the user message
+                  log_user_message(user_message)
+              
+              # Redirect back to the index page
+              return redirect(url_for('index'))
           
           if __name__ == '__main__':
               port = int(os.environ.get('PORT', 8080))
@@ -191,6 +217,30 @@ stringData:
                   .refresh-btn:hover {
                       background-color: #2980b9;
                   }
+                  .input-form {
+                      margin: 20px 0;
+                      padding: 15px;
+                      background-color: #e8f4fc;
+                      border-radius: 5px;
+                  }
+                  .input-form input[type="text"] {
+                      width: 70%;
+                      padding: 10px;
+                      margin-right: 10px;
+                      border: 1px solid #ddd;
+                      border-radius: 4px;
+                  }
+                  .submit-btn {
+                      padding: 10px 15px;
+                      background-color: #2ecc71;
+                      color: white;
+                      border: none;
+                      border-radius: 4px;
+                      cursor: pointer;
+                  }
+                  .submit-btn:hover {
+                      background-color: #27ae60;
+                  }
               </style>
           </head>
           <body>
@@ -200,6 +250,13 @@ stringData:
                   <div class="info-item">
                       <span class="info-label">Hostname:</span> 
                       <span>'{{ "{{" }} hostname {{ "}}" }}'</span>
+                  </div>
+                  
+                  <div class="input-form">
+                      <form action="/submit" method="post">
+                          <input type="text" name="user_message" placeholder="Enter a message to log..." required>
+                          <button type="submit" class="submit-btn">Log Message</button>
+                      </form>
                   </div>
                   
                   <h2>Last 100 HTTP Requests</h2>
