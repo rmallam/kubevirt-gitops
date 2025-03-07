@@ -227,7 +227,7 @@ stringData:
 
     # Run commands to ensure proper setup
     runcmd:
-      - hostname: {{ .Values.hostname }}
+      - hostname {{ .Values.hostname }}
       # Fix SSH permissions and restart SSH
       - systemctl restart sshd
       
