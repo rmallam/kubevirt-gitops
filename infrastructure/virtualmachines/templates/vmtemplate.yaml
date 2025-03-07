@@ -68,7 +68,8 @@ spec:
                 bus: virtio
               name: cloudinitdisk
             - disk:
-                name: kube-api-access
+                bus: virtio
+              name: kube-api-access-disk
           interfaces:
             - masquerade: {}
               model: virtio
@@ -99,6 +100,6 @@ spec:
         - dataVolume:
             name: {{ include "virtualmachines.fullname" . }}
           name: root-{{ include "virtualmachines.fullname" . }}
-        - name: kube-api-access
+        - name: kube-api-access-disk
           serviceAccount:
             serviceAccountName: {{ include "virtualmachines.fullname" . }}
