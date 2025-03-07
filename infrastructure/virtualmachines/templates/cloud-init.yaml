@@ -52,7 +52,7 @@ stringData:
       list: |
         rakesh:rakesh
         pydev:rakesh
-    hostname: fedora-vm-primary-site
+    hostname: {{ .Values.hostname }}
     # Set permissions on /etc/ssh/sshd_config
     write_files:
       - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
@@ -61,89 +61,61 @@ stringData:
           PermitRootLogin yes
       - path: /home/pydev/app/app.py
         content: |
-          from flask import Flask, render_template
+          from flask import Flask, render_template, request
           import socket
           import os
-          import json
-          from kubernetes import client, config
-
+          import datetime
+          
           app = Flask(__name__)
-
+          
+          LOG_FILE = "/home/pydev/app/requests.log"
+          
           def get_hostname():
               return socket.gethostname()
-
-          def get_k8s_api_info():
+              
+          def log_request(request):
+              """Log the incoming request with timestamp and client info"""
+              timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+              client_ip = request.remote_addr
+              request_method = request.method
+              request_path = request.path
+              user_agent = request.headers.get('User-Agent', 'Unknown')
+              
+              log_line = f"{timestamp} | {client_ip} | {request_method} {request_path} | {user_agent}\n"
+              
+              # Ensure the log directory exists
+              os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+              
+              # Append to log file
+              with open(LOG_FILE, 'a') as log_file:
+                  log_file.write(log_line)
+              
+              return log_line
+              
+          def get_last_logs(n=20):
+              """Get the last n lines from the log file"""
               try:
-                  # Try to load in-cluster configuration using the mounted service account
-                  try:
-                      # Load from the default service account token path
-                      config.load_incluster_config()
-                      print("Loaded in-cluster config")
-                  except Exception as e:
-                      print(f"Failed to load in-cluster config: {e}")
-                      # Try to load from kubeconfig file if provided
-                      if os.path.exists('/home/pydev/.kube/config'):
-                          config.load_kube_config('/    ')
-                          print("Loaded kube config file")
-                      else:
-                          # Manual configuration as last resort
-                          configuration = client.Configuration()
-                          
-                          # Read the required data from the mounted service account
-                          # These paths will be available if you mount the service account token
-                          with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r') as token_file:
-                              token = token_file.read().strip()
-                          
-                          with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as namespace_file:
-                              namespace = namespace_file.read().strip()
-                          
-                          # Hard-coding the API server URL is necessary if you're in a VM
-                          # Use the Kubernetes service DNS name which resolves inside the cluster
-                          host = os.environ.get('KUBERNETES_SERVICE_HOST', 'kubernetes.default.svc')
-                          port = os.environ.get('KUBERNETES_SERVICE_PORT', '443')
-                          
-                          # Configure the client
-                          configuration.host = f"https://{host}:{port}"
-                          configuration.api_key = {"authorization": f"Bearer {token}"}
-                          
-                          # Skip verification in development/testing (not recommended for production)
-                          configuration.verify_ssl = False
-                          
-                          # Create client with this configuration
-                          api_client = client.ApiClient(configuration)
-                          print("Manually configured API client")
-                  
-                  # Create API client
-                  version_api = client.VersionApi()
-                  version = version_api.get_code()
-                  
-                  core_api = client.CoreV1Api()
-                  # Try to list pods as a test
-                  try:
-                      pods = core_api.list_namespaced_pod(namespace="default")
-                      pod_count = len(pods.items)
-                  except Exception as e:
-                      pod_count = f"Error listing pods: {str(e)}"
-                  
-                  # Get API server info from the configuration
-                  api_server = client.Configuration().host
-                  
-                  return {
-                      "api_server": api_server,
-                      "version": version.git_version,
-                      "build_date": version.build_date,
-                      "platform": version.platform,
-                      "pod_count": pod_count
-                  }
+                  if not os.path.exists(LOG_FILE):
+                      return ["No logs available yet"]
+                      
+                  with open(LOG_FILE, 'r') as log_file:
+                      # Read all lines and get the last n entries
+                      lines = log_file.readlines()
+                      return lines[-n:] if len(lines) > 0 else ["No logs available yet"]
               except Exception as e:
-                  return {"error": str(e)}
-
+                  return [f"Error reading log file: {str(e)}"]
+          
           @app.route('/')
           def index():
+              # Log this request
+              log_request(request)
+              
+              # Get hostname and last logs
               hostname = get_hostname()
-              k8s_info = get_k8s_api_info()
-              return render_template('index.html', hostname=hostname, k8s_info=k8s_info)
-
+              last_logs = get_last_logs(20)
+              
+              return render_template('index.html', hostname=hostname, logs=last_logs)
+          
           if __name__ == '__main__':
               port = int(os.environ.get('PORT', 8080))
               app.run(host='0.0.0.0', port=port, debug=True)
@@ -151,7 +123,6 @@ stringData:
         content: |
           flask==2.0.1
           werkzeug<=2.0.3
-          kubernetes==23.6.0
       - path: /home/pydev/app/templates/index.html
         content: |
           <!DOCTYPE html>
@@ -159,7 +130,7 @@ stringData:
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Kubernetes Info Service</title>
+              <title>Request Logger Service</title>
               <style>
                   body {
                       font-family: Arial, sans-serif;
@@ -168,7 +139,7 @@ stringData:
                       padding: 20px;
                       line-height: 1.6;
                   }
-                  h1 {
+                  h1, h2 {
                       color: #2c3e50;
                       text-align: center;
                   }
@@ -185,43 +156,56 @@ stringData:
                       font-weight: bold;
                       color: #3498db;
                   }
-                  .error {
-                      color: #e74c3c;
+                  .log-container {
+                      background-color: #2c3e50;
+                      color: #ecf0f1;
+                      padding: 15px;
+                      border-radius: 5px;
+                      font-family: monospace;
+                      white-space: pre-wrap;
+                      max-height: 400px;
+                      overflow-y: auto;
+                  }
+                  .log-entry {
+                      padding: 2px 0;
+                      border-bottom: 1px solid #34495e;
+                  }
+                  .log-entry:last-child {
+                      border-bottom: none;
+                  }
+                  .refresh-btn {
+                      display: block;
+                      margin: 20px auto;
+                      padding: 10px 20px;
+                      background-color: #3498db;
+                      color: white;
+                      border: none;
+                      border-radius: 5px;
+                      cursor: pointer;
+                      font-size: 16px;
+                  }
+                  .refresh-btn:hover {
+                      background-color: #2980b9;
                   }
               </style>
           </head>
           <body>
               <div class="container">
-                  <h1>Kubernetes Info Service</h1>
+                  <h1>Request Logger Service</h1>
                   
                   <div class="info-item">
                       <span class="info-label">Hostname:</span> 
                       <span>'{{ "{{" }} hostname {{ "}}" }}'</span>
                   </div>
                   
-                  <h2>Kubernetes API Server Information</h2>
-                  {% if k8s_info.error is defined %}
-                      <div class="info-item error">
-                          <p>Error retrieving Kubernetes information: '{{ "{{" }} k8s_info.error {{ "}}" }}'</p>
-                      </div>
-                  {% else %}
-                      <div class="info-item">
-                          <span class="info-label">API Server:</span> 
-                          <span>'{{ "{{" }} k8s_info.api_server {{ "}}" }}'</span>
-                      </div>
-                      <div class="info-item">
-                          <span class="info-label">Version:</span> 
-                          <span>'{{ "{{" }} k8s_info.version {{ "}}" }}'</span>
-                      </div>
-                      <div class="info-item">
-                          <span class="info-label">Build Date:</span> 
-                          <span>'{{ "{{" }} k8s_info.build_date {{ "}}" }}'</span>
-                      </div>
-                      <div class="info-item">
-                          <span class="info-label">Platform:</span> 
-                          <span>'{{ "{{" }} k8s_info.platform {{ "}}" }}'</span>
-                      </div>
-                  {% endif %}
+                  <h2>Last 20 HTTP Requests</h2>
+                  <div class="log-container">
+                  {% for log in logs %}
+                      <div class="log-entry">'{{ "{{" }} log {{ "}}" }}'</div>
+                  {% endfor %}
+                  </div>
+                  
+                  <button class="refresh-btn" onclick="location.reload()">Refresh Logs</button>
               </div>
           </body>
           </html>
@@ -240,56 +224,6 @@ stringData:
 
           [Install]
           WantedBy=multi-user.target
-      - path: /home/pydev/app/setup-k8s-access.sh
-        content: |
-          #!/bin/bash
-          
-          # Create directory structure
-          mkdir -p /home/pydev/.kube
-          
-          # Get service account token and metadata
-          TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-          NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
-          CA_CERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-          
-          # Kubernetes API is usually available at kubernetes.default.svc
-          API_SERVER="https://kubernetes.default.svc"
-          
-          # Test API connection
-          echo "Testing connection to Kubernetes API..."
-          curl -s --cacert $CA_CERT --header "Authorization: Bearer $TOKEN" $API_SERVER/version
-          
-          # Create kubeconfig file
-          cat > /home/pydev/.kube/config << EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              certificate-authority: $CA_CERT
-              server: $API_SERVER
-            name: kubernetes
-          users:
-          - name: serviceaccount
-            user:
-              token: $TOKEN
-          contexts:
-          - context:
-              cluster: kubernetes
-              user: serviceaccount
-              namespace: $NAMESPACE
-            name: serviceaccount-context
-          current-context: serviceaccount-context
-          EOF
-          
-          # Set proper ownership
-          chown -R pydev:pydev /home/pydev/.kube
-          
-          echo "Kubeconfig created at /home/pydev/.kube/config"
-          
-          # Test kubectl if available
-          if command -v kubectl &> /dev/null; then
-            kubectl get pods
-          fi
 
     # Run commands to ensure proper setup
     runcmd:
@@ -303,7 +237,12 @@ stringData:
       
       # Install Python dependencies with the correct versions
       - pip3 install --upgrade pip
-      - pip3 install werkzeug==2.0.3 flask==2.0.1 kubernetes==23.6.0
+      - pip3 install werkzeug==2.0.3 flask==2.0.1
+      
+      # Create initial empty log file
+      - touch /home/pydev/app/requests.log
+      - chown pydev:pydev /home/pydev/app/requests.log
+      - chmod 644 /home/pydev/app/requests.log
       
       # Enable and start the Python service
       - cp /home/pydev/app/app.service /etc/systemd/system/
@@ -317,7 +256,3 @@ stringData:
       - firewall-cmd --permanent --add-port=8080/tcp
       - firewall-cmd --permanent --add-port=22/tcp
       - firewall-cmd --reload
-      
-      # Set up Kubernetes API access
-      - chmod +x /home/pydev/app/setup-k8s-access.sh
-      - /home/pydev/app/setup-k8s-access.sh
