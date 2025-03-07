@@ -67,7 +67,8 @@ stringData:
           
           app = Flask(__name__)
           
-          LOG_FILE = "/home/pydev/app/requests.log"
+          # Update log file path to use the mounted PV
+          LOG_FILE = "/mnt/logs/requests.log"
           
           def get_hostname():
               return socket.gethostname()
@@ -231,6 +232,22 @@ stringData:
       # Fix SSH permissions and restart SSH
       - systemctl restart sshd
       
+      # Create mount point directory
+      - mkdir -p /mnt/logs
+      
+      # Format the disk if it's not already formatted (first time only)
+      - blkid /dev/vdb || mkfs -t ext4 /dev/vdb
+      
+      # Add entry to /etc/fstab for persistent mounting
+      - grep -q "/dev/vdb" /etc/fstab || echo "/dev/vdb /mnt/logs ext4 defaults 0 0" >> /etc/fstab
+      
+      # Mount the persistent volume
+      - mount -a || mount /dev/vdb /mnt/logs
+      
+      # Set proper permissions
+      - chown -R pydev:pydev /mnt/logs
+      - chmod 755 /mnt/logs
+      
       # Set up Python app
       - mkdir -p /home/pydev/app/templates
       - chown -R pydev:pydev /home/pydev/app
@@ -240,10 +257,10 @@ stringData:
       - pip3 install --upgrade pip
       - pip3 install werkzeug==2.0.3 flask==2.0.1
       
-      # Create initial empty log file
-      - touch /home/pydev/app/requests.log
-      - chown pydev:pydev /home/pydev/app/requests.log
-      - chmod 644 /home/pydev/app/requests.log
+      # Create initial empty log file in the persistent volume
+      - touch /mnt/logs/requests.log
+      - chown pydev:pydev /mnt/logs/requests.log
+      - chmod 644 /mnt/logs/requests.log
       
       # Enable and start the Python service
       - cp /home/pydev/app/app.service /etc/systemd/system/
