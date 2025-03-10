@@ -304,7 +304,7 @@ stringData:
         systemctl start nfs-server
         
         # Try to mount the EFS share
-        if mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport 10.0.182.1:/ /opt/efs; then
+        if mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport {{ .Values.efsip }}:/ /opt/efs; then
           echo "EFS mount successful"
           
           # Create logs directory under EFS mount

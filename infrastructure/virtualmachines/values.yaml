@@ -114,3 +114,5 @@ nodeSelector:
 tolerations: []
 
 affinity: {}
+
+efsip: "10.0.0.1" #update your efs ip here if you are using efs for storage.
