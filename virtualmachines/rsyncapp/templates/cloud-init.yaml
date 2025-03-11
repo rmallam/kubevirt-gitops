@@ -1,0 +1,341 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudsecret
+  labels:
+    app.kubernetes.io/name: {{ include "virtualmachines.fullname" . }}
+stringData:
+  userdata: |
+    #cloud-config
+    # Disable SELinux to avoid permission issues
+    bootcmd:
+    - setenforce 0
+
+    # Update system packages
+    package_update: true
+    package_upgrade: true
+    packages:
+      - git
+      - python3
+      - python3-pip
+      - python3-devel
+      - gcc
+      - firewalld
+      - openssh-server
+      - jq
+      - curl
+      - util-linux
+      - lsscsi
+      - nfs-utils  # Added for NFS/EFS mounting
+      - rsync
+      - inotify-tools  # For real-time file monitoring
+      - lsyncd  # Added for more robust two-way sync
+
+    # Password authentication for SSH
+    ssh_pwauth: true
+
+    # Configure users with proper password settings
+    users:
+      - name: rakesh
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/rakesh
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+      - name: pydev
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/pydev
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+
+    # Ensure password auth works
+    chpasswd:
+      expire: false
+      list: |
+        rakesh:rakesh
+        pydev:rakesh
+    # Set permissions on /etc/ssh/sshd_config
+    write_files:
+      - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
+        content: |
+          PasswordAuthentication yes
+          PermitRootLogin yes
+      - path: /home/pydev/rsync-watcher.sh
+        content: |
+          #!/bin/bash
+          
+          # Configuration
+          SOURCE_LOG="/opt/logs/requests.log"
+          REMOTE_USER="{{ .Values.rsyncUser | default "pydev" }}"
+          REMOTE_HOST="{{ .Values.rsyncHost | default "rsync-target-vm" }}"
+          REMOTE_PATH="{{ .Values.rsyncRemotePath | default "/opt/logs" }}"
+          
+          # Ensure rsync target directory exists first
+          mkdir -p /tmp/rsync_logs
+          
+          # Function to sync the log file
+          sync_log() {
+              echo "[$(date)] Syncing log file to $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH"
+              rsync -avz --timeout=10 "$SOURCE_LOG" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/"
+              # Log the sync status
+              if [ $? -eq 0 ]; then
+                  echo "[$(date)] Sync successful" >> /tmp/rsync_logs/sync.log
+              else
+                  echo "[$(date)] Sync failed with exit code $?" >> /tmp/rsync_logs/sync.log
+              fi
+          }
+          
+          # Create initial sync
+          sync_log
+          
+          # Watch for changes to the log file
+          echo "[$(date)] Starting inotifywait to monitor $SOURCE_LOG"
+          while true; do
+              inotifywait -e modify -e create "$SOURCE_LOG"
+              sync_log
+              # Small delay to avoid multiple syncs for rapid file changes
+              sleep 1
+          done
+        permissions: '0755'
+        owner: pydev:pydev
+      
+      - path: /home/pydev/rsync-bidirectional.sh
+        content: |
+          #!/bin/bash
+          
+          # Configuration
+          LOG_DIR="/opt/efs/logs"
+          SOURCE_LOG="$LOG_DIR/requests.log"
+          REMOTE_USER="{{ .Values.rsyncUser | default "pydev" }}"
+          REMOTE_HOST="{{ .Values.rsyncHost | default "rsync-target-vm" }}"
+          REMOTE_PATH="{{ .Values.rsyncRemotePath | default "/opt/efs/logs" }}"
+          LOCAL_HOSTNAME=$(hostname)
+          SYNC_STATE_DIR="$LOG_DIR/.sync_state"
+          LOCK_FILE="$SYNC_STATE_DIR/sync.lock"
+          
+          # Ensure directories exist
+          mkdir -p /tmp/rsync_logs
+          mkdir -p "$SYNC_STATE_DIR"
+          
+          # Create hostname identifier that will be the same on both sides
+          echo "$LOCAL_HOSTNAME" > "$SYNC_STATE_DIR/hostname"
+          
+          # Logging function
+          log_message() {
+            echo "[$(date)] $1" >> /tmp/rsync_logs/sync.log
+          }
+          
+          # Generate a unique ID for this sync operation
+          generate_sync_id() {
+            echo "$(date +%s.%N)-$(hostname)-$$"
+          }
+          
+          # Locking mechanism to prevent simultaneous syncs
+          acquire_lock() {
+            if [ -f "$LOCK_FILE" ]; then
+              LOCK_TIME=$(cat "$LOCK_FILE" | cut -d':' -f2)
+              CURRENT_TIME=$(date +%s)
+              
+              # If lock is older than 5 minutes, it may be stale
+              if [ $((CURRENT_TIME - LOCK_TIME)) -gt 300 ]; then
+                log_message "Found stale lock, removing it"
+                rm -f "$LOCK_FILE"
+              else
+                return 1
+              fi
+            fi
+            
+            echo "$(generate_sync_id):$(date +%s)" > "$LOCK_FILE"
+            return 0
+          }
+          
+          # Release lock
+          release_lock() {
+            rm -f "$LOCK_FILE"
+          }
+          
+          # Function to safely merge log files with conflict resolution
+          merge_logs() {
+            local source_file="$1"
+            local target_file="$2"
+            local output_file="$3"
+            
+            # If either file doesn't exist, just use the one that does
+            if [ ! -f "$source_file" ]; then
+              if [ -f "$target_file" ]; then
+                cp "$target_file" "$output_file"
+              else
+                touch "$output_file"  # Create empty file if neither exists
+              fi
+              return
+            elif [ ! -f "$target_file" ]; then
+              cp "$source_file" "$output_file"
+              return
+            fi
+            
+            # Both files exist, merge them preserving timestamps and removing duplicates
+            # Use timestamp as sort key (assuming standard log format with timestamp first)
+            cat "$source_file" "$target_file" | sort -k1,2 | uniq > "$output_file"
+          }
+          
+          # Function to sync logs bidirectionally with the remote server
+          sync_bidirectional() {
+            # Generate sync ID for this operation
+            SYNC_ID=$(generate_sync_id)
+            local timestamp=$(date +%s)
+            
+            # Try to acquire lock
+            if ! acquire_lock; then
+              log_message "Another sync is in progress, skipping"
+              return
+            fi
+            
+            log_message "Starting bidirectional sync with ID: $SYNC_ID"
+            
+            # Create marker file to identify this sync operation
+            echo "$SYNC_ID" > "$SYNC_STATE_DIR/last_sync.id"
+            
+            # First, get the remote file
+            mkdir -p /tmp/sync
+            if rsync -avzq --timeout=10 "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/requests.log" "/tmp/sync/remote.log" 2>/dev/null; then
+              log_message "Retrieved remote log successfully"
+              
+              # Make backup of our local file
+              cp "$SOURCE_LOG" "/tmp/sync/local.log" 2>/dev/null || touch "/tmp/sync/local.log"
+              
+              # Merge the files
+              merge_logs "/tmp/sync/local.log" "/tmp/sync/remote.log" "/tmp/sync/merged.log"
+              
+              # Update both local and remote with the merged file
+              cp "/tmp/sync/merged.log" "$SOURCE_LOG"
+              rsync -avzq --timeout=10 "/tmp/sync/merged.log" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/requests.log" 2>/dev/null
+              
+              log_message "Completed bidirectional sync, both sides updated with merged logs"
+            else
+              log_message "Failed to retrieve remote log, will try again later"
+            fi
+            
+            # Record last successful sync time
+            echo "$timestamp" > "$SYNC_STATE_DIR/last_successful_sync"
+            
+            # Clean up
+            rm -rf /tmp/sync
+            release_lock
+          }
+          
+          # Initial sync
+          log_message "===== Starting bidirectional sync service ====="
+          
+          # Wait for network to be fully up
+          sleep 5
+          
+          # Try initial sync
+          sync_bidirectional
+          
+          # Set up file watching in the background
+          (
+            log_message "Starting file watch loop for local changes"
+            while true; do
+              if [ -f "$SOURCE_LOG" ]; then
+                inotifywait -e modify -e create "$SOURCE_LOG" >/dev/null 2>&1
+                log_message "Local file changed, triggering sync"
+                sync_bidirectional
+              else
+                # If file doesn't exist yet, wait and check again
+                touch "$SOURCE_LOG"
+                sleep 5
+              fi
+            done
+          ) &
+          
+          # Main loop - periodically check for changes regardless of file notifications
+          log_message "Starting periodic sync loop"
+          while true; do
+            # Sync every minute to catch remote changes that didn't trigger a notification
+            sleep 60
+            sync_bidirectional
+          done
+        permissions: '0755'
+        owner: pydev:pydev
+      
+      - path: /home/pydev/setup-rsync-keys.sh
+        content: |
+          #!/bin/bash
+          
+          # Configuration
+          REMOTE_USER="{{ .Values.rsyncUser | default "pydev" }}"
+          REMOTE_HOST="{{ .Values.rsyncHost | default "rsync-target-vm" }}"
+          
+          # Generate SSH key if it doesn't exist
+          if [ ! -f /home/pydev/.ssh/id_rsa ]; then
+              mkdir -p /home/pydev/.ssh
+              ssh-keygen -t rsa -N "" -f /home/pydev/.ssh/id_rsa
+              chmod 700 /home/pydev/.ssh
+              chmod 600 /home/pydev/.ssh/id_rsa
+          fi
+          
+          # Add target to known hosts to avoid prompt
+          ssh-keyscan -H "$REMOTE_HOST" >> /home/pydev/.ssh/known_hosts
+          
+          # Copy SSH key to the target machine
+          # This will prompt for password the first time, but then set up passwordless access
+          sshpass -p "rakesh" ssh-copy-id -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST"
+          
+          echo "SSH key setup completed for $REMOTE_USER@$REMOTE_HOST"
+        permissions: '0755'
+        owner: pydev:pydev
+      
+      - path: /etc/systemd/system/rsync-watcher.service
+        content: |
+          [Unit]
+          Description=Real-time Log Synchronization Service
+          After=network.target app.service
+          
+          [Service]
+          User=pydev
+          ExecStart=/home/pydev/rsync-watcher.sh
+          Restart=always
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+        permissions: '0644'
+      
+      - path: /etc/systemd/system/rsync-bidirectional.service
+        content: |
+          [Unit]
+          Description=Two-way Log Synchronization Service
+          After=network.target app.service
+          
+          [Service]
+          User=pydev
+          ExecStart=/home/pydev/rsync-bidirectional.sh
+          Restart=always
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+        permissions: '0644'
+
+    # Run commands to ensure proper setup
+    runcmd:
+      # Open firewall port
+      - systemctl enable firewalld
+      - systemctl start firewalld
+      - firewall-cmd --permanent --add-port=8080/tcp
+      - firewall-cmd --permanent --add-port=22/tcp
+      - firewall-cmd --reload
+      
+      # Install sshpass for automated SSH key setup
+      - dnf install -y sshpass
+      
+      # Setup SSH keys for passwordless rsync
+      - su - pydev -c "/home/pydev/setup-rsync-keys.sh"
+      
+      # Enable and start the bidirectional rsync service
+      - systemctl daemon-reload
+      - systemctl enable rsync-bidirectional.service
+      - systemctl start rsync-bidirectional.service

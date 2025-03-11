@@ -12,7 +12,7 @@ image:
 
 imagePullSecrets: []
 nameOverride: ""
-fullnameOverride: "fedora-vm"
+fullnameOverride: "rsync-app"
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -35,7 +35,7 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
-hostname:  fedora-vm-primary-site
+hostname: fedora-vm-DR-site
 ingress:
   enabled: false
   className: ""
@@ -103,7 +103,7 @@ access:
 
 service:
   create: true
-  type: ClusterIP  #  ClusterIP, NodePort, LoadBalancer, or ExternalName
+  type: LoadBalancer  #  ClusterIP, NodePort, LoadBalancer, or ExternalName
   ports:
     - port: 8080
       protocol: TCP
@@ -120,4 +120,7 @@ tolerations: []
 
 affinity: {}
 
-efsip: "10.0.163.16" #update your efs ip here if you are using efs for storage.
+efsip: "10.0.57.188" #update your efs ip here if you are using efs for storage.
+rsyncUser: pydev
+rsyncHost: 
+rsyncRemotePath: /opt/efs/logs/

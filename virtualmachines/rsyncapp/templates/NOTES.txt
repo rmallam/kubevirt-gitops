@@ -1,0 +1,7 @@
+1. Check the vm status by running 
+   oc get vm {{ include "virtualmachines.fullname" . }}
+2. To login to the vm console, if you have the virtctl cli installed, run the below command
+   virtctl console {{ include "virtualmachines.fullname" . }}
+3. To stop/start vm using virtctl cli
+   virtctl stop/start {{ include "virtualmachines.fullname" . }}
+

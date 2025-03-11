@@ -12,7 +12,7 @@ image:
 
 imagePullSecrets: []
 nameOverride: ""
-fullnameOverride: "fedora-vm"
+fullnameOverride: "rsync-app"
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -121,3 +121,6 @@ tolerations: []
 affinity: {}
 
 efsip: "10.0.163.16" #update your efs ip here if you are using efs for storage.
+rsyncUser: pydev
+rsyncHost: a4fca1cbc383d474dad95faa3914f170-270384666.us-east-2.elb.amazonaws.com
+rsyncRemotePath: /opt/efs/logs/
