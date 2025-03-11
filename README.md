@@ -6,7 +6,7 @@
 [![OpenShift](https://img.shields.io/badge/OpenShift-4.10+-red.svg)](https://www.openshift.com/)
 [![ArgoCD](https://img.shields.io/badge/ArgoCD-Powered-green.svg)](https://argoproj.github.io/cd/)
 
-<img src="https://raw.githubusercontent.com/kubernetes/kubevirt/main/docs/images/kubevirt-logo.png" alt="KubeVirt Logo" width="200"/>
+<img src="https://raw.githubusercontent.com/kubevirt/community/main/logo/KubeVirt_icon.png" alt="KubeVirt Logo" width="200"/>
 
 **A GitOps approach to managing KubeVirt virtualization on OpenShift clusters**
 
