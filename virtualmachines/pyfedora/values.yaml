@@ -108,8 +108,13 @@ service:
     - port: 8080
       protocol: TCP
 
-nodeSelector:
-  site: primary
+# Node placement configuration
+# To use nodeSelector, uncomment and adjust the following:
+# nodeSelector: 
+#   site: primary  
+# 
+# To disable nodeSelector completely, use an empty map:
+nodeSelector: {}
 
 tolerations: []
 
