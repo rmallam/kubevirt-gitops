@@ -69,7 +69,49 @@ rosa create machinepools -c $(rosa list clusters | awk -F " " '{print $2}' | gre
 
 ### EFS (Elastic File System)
 
-Create an EFS filesystem, use the same VPC as ROSA cluster and update the security group to accept connections from anywhere.
+Create an EFS filesystem named "pythontest" using the AWS CLI:
+
+```bash
+# Get your VPC ID where the ROSA cluster is running
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*rosa*" --query "Vpcs[0].VpcId" --output text)
+
+# Create a security group for the EFS filesystem
+SECURITY_GROUP_ID=$(aws ec2 create-security-group \
+  --group-name EFS-pythontest-SG \
+  --description "Security group for EFS pythontest" \
+  --vpc-id $VPC_ID \
+  --output text --query 'GroupId')
+
+# Allow inbound NFS traffic from anywhere
+aws ec2 authorize-security-group-ingress \
+  --group-id $SECURITY_GROUP_ID \
+  --protocol tcp \
+  --port 2049 \
+  --cidr 0.0.0.0/0
+
+# Create the EFS filesystem
+EFS_ID=$(aws efs create-file-system \
+  --creation-token pythontest \
+  --tags Key=Name,Value=pythontest \
+  --encrypted \
+  --performance-mode generalPurpose \
+  --throughput-mode bursting \
+  --output text --query 'FileSystemId')
+
+echo "Created EFS filesystem with ID: $EFS_ID"
+
+# Create mount targets in all subnets of the VPC
+for SUBNET_ID in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "Subnets[*].SubnetId" --output text); do
+  aws efs create-mount-target \
+    --file-system-id $EFS_ID \
+    --subnet-id $SUBNET_ID \
+    --security-groups $SECURITY_GROUP_ID
+done
+
+echo "EFS filesystem 'pythontest' ($EFS_ID) has been created and configured."
+```
+
+Use this EFS filesystem with the same VPC as your ROSA cluster. The security group is configured to accept connections from anywhere, which is convenient for testing but should be restricted in production environments.
 
 ## 🏷️ Node Labeling for Disaster Recovery
 
