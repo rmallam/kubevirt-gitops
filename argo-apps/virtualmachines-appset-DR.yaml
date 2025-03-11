@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: infra-application-set
+  name: virtualmachines-application-set
   namespace: openshift-gitops
 spec:
   generators:
@@ -18,7 +18,7 @@ spec:
       source:
         helm:
           valueFiles:
-          - values.yaml
+          - values-dr.yaml
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         targetRevision: HEAD
         path: '{{ path }}'
