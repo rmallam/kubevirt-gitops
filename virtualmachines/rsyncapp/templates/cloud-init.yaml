@@ -68,7 +68,7 @@ stringData:
           #!/bin/bash
           
           # Configuration
-          SOURCE_LOG="/opt/logs/requests.log"
+          SOURCE_LOG="/opt/efs/logs/requests.log"
           REMOTE_USER="{{ .Values.rsyncUser | default "pydev" }}"
           REMOTE_HOST="{{ .Values.rsyncHost | default "rsync-target-vm" }}"
           REMOTE_PATH="{{ .Values.rsyncRemotePath | default "/opt/logs" }}"
@@ -322,6 +322,34 @@ stringData:
 
     # Run commands to ensure proper setup
     runcmd:
+      # Create mount points
+      - mkdir -p /opt/logs
+      - mkdir -p /opt/efs
+      
+      # Mount EFS share
+      - |
+        echo "Attempting to mount EFS share..."
+        # First make sure NFS is enabled
+        systemctl enable nfs-server
+        systemctl start nfs-server
+        
+        # Try to mount the EFS share
+        if mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport {{ .Values.efsip }}:/ /opt/efs; then
+          echo "EFS mount successful"
+          
+          # Create logs directory under EFS mount
+          mkdir -p /opt/efs/logs
+          chown -R pydev:pydev /opt/efs/logs
+          chmod 755 /opt/efs/logs
+          
+          # Symlink the logs directory to point to EFS
+          rm -rf /opt/logs
+          ln -sf /opt/efs/logs /opt/logs
+        else
+          echo "EFS mount failed. Continuing with local storage."
+          # Continue with local storage setup
+        fi
+      
       # Open firewall port
       - systemctl enable firewalld
       - systemctl start firewalld
