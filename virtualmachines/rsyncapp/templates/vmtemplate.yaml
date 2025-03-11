@@ -8,7 +8,6 @@ metadata:
   annotations:
     k8s.v1.cni.cncf.io/networks: '[{"name":"bridge-network"}]'
 spec:
-  serviceAccountName: {{ include "virtualmachines.fullname" . }}
   dataVolumeTemplates:
     - metadata:
         creationTimestamp: null
