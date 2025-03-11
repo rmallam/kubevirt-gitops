@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "virtualmachines.fullname" . }}-logs
+  labels:
+    app.kubernetes.io/name: {{ include "virtualmachines.fullname" . }}-logs
+    app.kubernetes.io/part-of: python-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # If you have a specific StorageClass, uncomment and specify it
+  # storageClassName: your-storage-class
+  # If you want to bind to a specific existing PV, uncomment and specify it
+  # volumeName: your-existing-pv-name

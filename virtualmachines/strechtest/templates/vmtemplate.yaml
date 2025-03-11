@@ -1,0 +1,117 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    app: {{ include "virtualmachines.fullname" . }}
+    kubevirt.io/dynamic-credentials-support: 'true'
+  name: {{ include "virtualmachines.fullname" . }}
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[{"name":"bridge-network"}]'
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: {{ include "virtualmachines.fullname" . }}
+      spec:
+        preallocation: false
+        source:
+          http:
+            url: {{ .Values.source.url }}
+        storage:
+          resources:
+            requests:
+              storage: {{ .Values.source.storagesize }}
+          storageClassName: {{ .Values.source.storageclass }}
+  running: true
+  template:
+    metadata:
+      annotations:
+        vm.kubevirt.io/flavor: {{ .Values.source.flavorsize }}
+        vm.kubevirt.io/os: {{ .Values.source.osflavor }}
+        vm.kubevirt.io/workload: server
+      creationTimestamp: null
+      labels:
+        app: {{ include "virtualmachines.fullname" . }}
+        kubevirt.io/domain: {{ include "virtualmachines.fullname" . }}
+        kubevirt.io/size: {{ .Values.source.flavorsize }}
+    spec:
+      # Add nodeSelector to select which nodes to schedule the VM on
+      nodeSelector:
+        # You can use values from the Helm chart
+        {{- if .Values.nodeSelector }}
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+        {{- end }}
+        
+      {{- if eq .Values.access.ssh.enabled true }}
+      accessCredentials:
+        - sshPublicKey:
+            propagationMethod:
+      {{- if eq .Values.access.ssh.propogationmethod "qemuGuestAgent" }}
+              qemuGuestAgent:
+                users:
+                  {{- toYaml .Values.access.ssh.users | nindent 18 }} 
+      {{- else }}
+              configDrive: {}
+      {{- end }}
+            source:
+              secret:
+                secretName: {{ include "virtualmachines.fullname" . }}
+      {{- end }}
+      architecture: amd64
+      domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+            - bootOrder: 1
+              disk:
+                bus: virtio
+              name: root-{{ include "virtualmachines.fullname" . }}
+            - bootOrder: 2
+              disk:
+                bus: virtio
+              name: cloudinitdisk
+            - disk:
+                bus: virtio
+              name: kube-api-access-disk
+            - disk:
+                bus: virtio
+              name: logs-disk
+          interfaces:
+            - masquerade: {}
+              model: virtio
+              name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        features:
+          acpi: {}
+          smm:
+            enabled: true
+        firmware:
+          bootloader:
+            efi: {}
+        machine:
+          type: pc-q35-rhel9.2.0
+        memory:
+          guest: 2Gi
+        resources: {}
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 180
+      volumes:
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            secretRef:
+              name: cloudsecret
+        - dataVolume:
+            name: {{ include "virtualmachines.fullname" . }}
+          name: root-{{ include "virtualmachines.fullname" . }}
+        - name: kube-api-access-disk
+          serviceAccount:
+            serviceAccountName: {{ include "virtualmachines.fullname" . }}
+        - name: logs-disk
+          persistentVolumeClaim:
+            claimName: {{ include "virtualmachines.fullname" . }}-logs

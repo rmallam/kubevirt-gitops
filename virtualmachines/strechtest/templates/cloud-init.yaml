@@ -1,0 +1,414 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudsecret
+  labels:
+    app.kubernetes.io/name: python-app-vm
+    app.kubernetes.io/part-of: python-app
+stringData:
+  userdata: |
+    #cloud-config
+    # Disable SELinux to avoid permission issues
+    bootcmd:
+    - setenforce 0
+
+    # Update system packages
+    package_update: true
+    package_upgrade: true
+    packages:
+      - git
+      - python3
+      - python3-pip
+      - python3-devel
+      - gcc
+      - firewalld
+      - openssh-server
+      - jq
+      - curl
+      - util-linux
+      - lsscsi
+      - nfs-utils  # Added for NFS/EFS mounting
+
+    # Password authentication for SSH
+    ssh_pwauth: true
+
+    # Configure users with proper password settings
+    users:
+      - name: rakesh
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/rakesh
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+      - name: pydev
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/pydev
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+
+    # Ensure password auth works
+    chpasswd:
+      expire: false
+      list: |
+        rakesh:rakesh
+        pydev:rakesh
+    # Set permissions on /etc/ssh/sshd_config
+    write_files:
+      - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
+        content: |
+          PasswordAuthentication yes
+          PermitRootLogin yes
+      - path: /home/pydev/app/app.py
+        content: |
+          from flask import Flask, render_template, request, redirect, url_for
+          import socket
+          import os
+          import datetime
+          
+          app = Flask(__name__)
+          
+          # Update log file path to use the mounted PV
+          LOG_FILE = "/opt/logs/requests.log"
+          
+          def get_hostname():
+              return socket.gethostname()
+              
+          def log_request(request):
+              """Log the incoming request with timestamp and client info"""
+              timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+              hostname = get_hostname()
+              client_ip = request.remote_addr
+              request_method = request.method
+              request_path = request.path
+              user_agent = request.headers.get('User-Agent', 'Unknown')
+              
+              log_line = f"{timestamp} | {hostname} | {client_ip} | {request_method} {request_path} | {user_agent}\n"
+              
+              # Ensure the log directory exists
+              os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+              
+              # Append to log file
+              with open(LOG_FILE, 'a') as log_file:
+                  log_file.write(log_line)
+              
+              return log_line
+
+          def log_user_message(message):
+              """Log a user-submitted message"""
+              timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+              hostname = get_hostname()
+              
+              # Format the log entry
+              log_line = f"{timestamp} | {hostname} | USER_MESSAGE | {message}\n"
+              
+              # Append to log file
+              with open(LOG_FILE, 'a') as log_file:
+                  log_file.write(log_line)
+              
+              return log_line
+              
+          def get_last_logs(n=100):
+              """Get the last n lines from the log file"""
+              try:
+                  if not os.path.exists(LOG_FILE):
+                      return ["No logs available yet"]
+                      
+                  with open(LOG_FILE, 'r') as log_file:
+                      # Read all lines and get the last n entries
+                      lines = log_file.readlines()
+                      return lines[-n:] if len(lines) > 0 else ["No logs available yet"]
+              except Exception as e:
+                  return [f"Error reading log file: {str(e)}"]
+          
+          @app.route('/')
+          def index():
+              # Log this request
+              log_request(request)
+              
+              # Get hostname and last logs
+              hostname = get_hostname()
+              last_logs = get_last_logs(100)
+              
+              return render_template('index.html', hostname=hostname, logs=last_logs)
+          
+          @app.route('/submit', methods=['POST'])
+          def submit():
+              # Get the user message from the form
+              user_message = request.form.get('user_message', '')
+              
+              if user_message:
+                  # Log the user message
+                  log_user_message(user_message)
+              
+              # Redirect back to the index page
+              return redirect(url_for('index'))
+          
+          if __name__ == '__main__':
+              port = int(os.environ.get('PORT', 8080))
+              app.run(host='0.0.0.0', port=port, debug=True)
+      - path: /home/pydev/app/requirements.txt
+        content: |
+          flask==2.0.1
+          werkzeug<=2.0.3
+      - path: /home/pydev/app/templates/index.html
+        content: |
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Request Logger Service</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      max-width: 800px;
+                      margin: 0 auto;
+                      padding: 20px;
+                      line-height: 1.6;
+                  }
+                  h1, h2 {
+                      color: #2c3e50;
+                      text-align: center;
+                  }
+                  .container {
+                      background-color: #f8f9fa;
+                      border-radius: 8px;
+                      padding: 20px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  }
+                  .info-item {
+                      margin-bottom: 10px;
+                  }
+                  .info-label {
+                      font-weight: bold;
+                      color: #3498db;
+                  }
+                  .log-container {
+                      background-color: #2c3e50;
+                      color: #ecf0f1;
+                      padding: 15px;
+                      border-radius: 5px;
+                      font-family: monospace;
+                      white-space: pre-wrap;
+                      max-height: 400px;
+                      overflow-y: auto;
+                  }
+                  .log-entry {
+                      padding: 2px 0;
+                      border-bottom: 1px solid #34495e;
+                  }
+                  .log-entry:last-child {
+                      border-bottom: none;
+                  }
+                  .refresh-btn {
+                      display: block;
+                      margin: 20px auto;
+                      padding: 10px 20px;
+                      background-color: #3498db;
+                      color: white;
+                      border: none;
+                      border-radius: 5px;
+                      cursor: pointer;
+                      font-size: 16px;
+                  }
+                  .refresh-btn:hover {
+                      background-color: #2980b9;
+                  }
+                  .input-form {
+                      margin: 20px 0;
+                      padding: 15px;
+                      background-color: #e8f4fc;
+                      border-radius: 5px;
+                  }
+                  .input-form input[type="text"] {
+                      width: 70%;
+                      padding: 10px;
+                      margin-right: 10px;
+                      border: 1px solid #ddd;
+                      border-radius: 4px;
+                  }
+                  .submit-btn {
+                      padding: 10px 15px;
+                      background-color: #2ecc71;
+                      color: white;
+                      border: none;
+                      border-radius: 4px;
+                      cursor: pointer;
+                  }
+                  .submit-btn:hover {
+                      background-color: #27ae60;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Request Logger Service</h1>
+                  
+                  <div class="info-item">
+                      <span class="info-label">Hostname:</span> 
+                      <span>'{{ "{{" }} hostname {{ "}}" }}'</span>
+                  </div>
+                  
+                  <div class="input-form">
+                      <form action="/submit" method="post">
+                          <input type="text" name="user_message" placeholder="Enter a message to log..." required>
+                          <button type="submit" class="submit-btn">Log Message</button>
+                      </form>
+                  </div>
+                  
+                  <h2>Last 100 HTTP Requests</h2>
+                  <div class="log-container">
+                  {% for log in logs %}
+                      <div class="log-entry">'{{ "{{" }} log {{ "}}" }}'</div>
+                  {% endfor %}
+                  </div>
+                  
+                  <button class="refresh-btn" onclick="location.reload()">Refresh Logs</button>
+              </div>
+          </body>
+          </html>
+      - path: /home/pydev/app/app.service
+        content: |
+          [Unit]
+          Description=Python Flask Application
+          After=network.target
+
+          [Service]
+          User=pydev
+          WorkingDirectory=/home/pydev/app
+          ExecStart=/usr/bin/python3 -m flask run --host=0.0.0.0 --port=8080
+          Environment="FLASK_APP=app.py"
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # Run commands to ensure proper setup
+    runcmd:
+      - hostname {{ .Values.hostname }}
+      # Fix SSH permissions and restart SSH
+      - systemctl restart sshd
+      
+      # Create mount points
+      - mkdir -p /opt/logs
+      - mkdir -p /opt/efs
+      
+      # Mount EFS share
+      - |
+        echo "Attempting to mount EFS share..."
+        # First make sure NFS is enabled
+        systemctl enable nfs-server
+        systemctl start nfs-server
+        
+        # Try to mount the EFS share
+        if mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport {{ .Values.efsip }}:/ /opt/efs; then
+          echo "EFS mount successful"
+          
+          # Create logs directory under EFS mount
+          mkdir -p /opt/efs/logs
+          chown -R pydev:pydev /opt/efs/logs
+          chmod 755 /opt/efs/logs
+          
+          # Symlink the logs directory to point to EFS
+          rm -rf /opt/logs
+          ln -sf /opt/efs/logs /opt/logs
+        else
+          echo "EFS mount failed. Continuing with local storage."
+          # Continue with local storage setup
+        fi
+      
+      # List all block devices for debugging
+      - echo "Listing all block devices:"
+      - ls -la /dev/vd*
+      - lsblk
+      
+      # Find the correct device for our persistent volume
+      # In KubeVirt, devices are usually named /dev/vdX where X is a letter
+      # We need to find the one that's not already in use (not root and not cloud-init)
+      - |
+        # Only set up local storage if EFS mount failed
+        if [ ! -d "/opt/efs/logs" ] || [ ! -L "/opt/logs" ]; then
+          echo "Setting up local storage for logs..."
+          
+          for dev in /dev/vdc /dev/vdd /dev/vde; do
+            if [ -b "$dev" ]; then
+              echo "Found potential log device: $dev"
+              # Check if it's not already mounted or used by something else
+              if ! mount | grep -q "$dev"; then
+                echo "Device $dev is not mounted, using it for logs"
+                LOG_DEVICE="$dev"
+                break
+              fi
+            fi
+          done
+          
+          if [ -z "$LOG_DEVICE" ]; then
+            echo "ERROR: Could not find suitable device for logs"
+            LOG_DEVICE="/dev/vdc"  # Fallback to a likely device name
+          fi
+          
+          echo "Selected log device: $LOG_DEVICE"
+          
+          # Format the disk if it's not already formatted
+          if ! blkid $LOG_DEVICE | grep -q ext4; then
+            echo "Formatting $LOG_DEVICE with ext4"
+            mkfs.ext4 -F $LOG_DEVICE
+          fi
+          
+          # Add entry to /etc/fstab for persistent mounting
+          if ! grep -q "$LOG_DEVICE" /etc/fstab; then
+            echo "$LOG_DEVICE /opt/logs ext4 defaults 0 0" >> /etc/fstab
+          fi
+          
+          # Mount the persistent volume
+          mount $LOG_DEVICE /opt/logs || mount -a
+          
+          # Exit with error if mount failed
+          if ! mount | grep -q "/opt/logs"; then
+            echo "ERROR: Failed to mount log volume"
+            exit 1
+          fi
+        
+          # Set proper permissions
+          chown -R pydev:pydev /opt/logs
+          chmod 755 /opt/logs
+        fi
+      
+      # Set up Python app
+      - mkdir -p /home/pydev/app/templates
+      - chown -R pydev:pydev /home/pydev/app
+      - chmod 755 /home/pydev/app
+      
+      # Install Python dependencies with the correct versions
+      - pip3 install --upgrade pip
+      - pip3 install werkzeug==2.0.3 flask==2.0.1
+      
+      # Create initial empty log file in the persistent volume
+      - touch /opt/logs/requests.log
+      - chown pydev:pydev /opt/logs/requests.log
+      - chmod 644 /opt/logs/requests.log
+      
+      # Add mount info to Python app log for debugging
+      - echo "--- Mount Information ---" > /opt/logs/mount-info.log
+      - mount >> /opt/logs/mount-info.log
+      - echo "--- EFS Mount Status ---" >> /opt/logs/mount-info.log
+      - mount | grep efs >> /opt/logs/mount-info.log
+      - echo "--- Block Devices ---" >> /opt/logs/mount-info.log
+      - lsblk >> /opt/logs/mount-info.log
+      - ls -la /dev/vd* >> /opt/logs/mount-info.log
+      
+      # Enable and start the Python service
+      - cp /home/pydev/app/app.service /etc/systemd/system/
+      - systemctl daemon-reload
+      - systemctl enable app.service
+      - systemctl start app.service
+      
+      # Open firewall port
+      - systemctl enable firewalld
+      - systemctl start firewalld
+      - firewall-cmd --permanent --add-port=8080/tcp
+      - firewall-cmd --permanent --add-port=22/tcp
+      - firewall-cmd --reload

@@ -1,0 +1,123 @@
+# Default values for virtualmachines.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "fedora-vm"
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+hostname: fedora-vm-DR-site
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+
+
+source:
+  url: 'https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-UEFI-UKI.x86_64-40-1.14.qcow2'
+  storagesize: 30Gi
+  storageclass: gp3
+  osflavor: fedora
+  flavorsize: small #small , large, medium
+
+cloudinitdata:  ## this is executed only on first boot
+  #cloud-config
+  user: rakesh
+  password: rakesh
+  chpasswd: { expire: False }
+
+  ##use this to write any files into the vm used for startup like yum repo's etc
+  # write_files: 
+  #     - path:  /etc/yum.repos.d/mariadb.repo
+  #       content: |
+  #         [mariadb]
+  #         name = MariaDB
+  #         baseurl = https://rpm.mariadb.org/10.6/rhel/$releasever/$basearch
+  #         gpgkey= https://rpm.mariadb.org/RPM-GPG-KEY-MariaDB
+  #         gpgcheck=1
+  runcmd:  # use this to run commands at startup
+    - yum install -y qemu-guest-agent
+    - systemctl enable --now qemu-guest-agent
+
+access:
+  ssh:
+    enabled: true
+    pubkey: "c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFDQVFEV1hJWW5lM0RIa3NvNk9aMEF4czhxWm1aSGRwR0srV21VbDlMSXRrWFFneWRDQmlnTzZzSGhkNHNYZkJLYzIwdFc4ZHJsbzF5SWI2K3ZLbUNIRk95My9lTDBkdklDUUNPSDNab1UybFJTRnNhTmpMeC9jb0V6YTlvVFQ4b3BKTVJsbTQrYTBGNlhEeGlUVTFlOEhkL2RjZTljSkhDbDRjbm15b0FtTWRuZVNlSTVUaWtaMzJZMVlXZndsb0xLR2dnTVZpcEVYYlhkdmc0TkZ1S0tzdEx2ODQzOFp0NmNzWVNOZUpmaDgzNXMza244akhVdHgrQmtaWDMzK00ybkJmcDFGZTFIYTVIMzJSelIwZkNzZTdTbG92R0JpQW50KzFsK2pwSzhzZkRzcm5LVVo3ZXU0dFFvVHN3NTdjSmN5Wk1TZ0EydSsxTVNEeHNla1lUQXlNMFB2US9OSkJ4L3o2NC9nZHNsUS95ZE5ETGZEclNiU1FjWEsxT1FTazRyRTViNHBDZUNwUDVibmFOakQ5ODZuc2JmNkZXMTh0dTVIUjRIOTVOV1dDbGJOVnBHT21uVG9Hc0pyYUZYbm5CNWgyS0ZkTnR1TitxRUZweUx3N1A4Ky9XZTBJdThGbWxIVWNTZGVVU21WTkxiSUdwNnlTNVR0QThDZFZFUGx5ZDFrcWdjLzAxLy9lalJUUUxXR0piY3ZaaUgySDczbUs0amk3UVVRSUtiYXRNWHNoZTBhaXBqd0FGRFJhUzJlM29KUjY4V0ZNYUh3TTlLMnJUZTRDbUZYQ1FycTNFM0ZWV1MrbjRldVZxYnk1NVorQURuK0swcVdQbFpjY2puMDU3SHY3bWVZTlkxMUs1cVFqdVlrTDFmTG00bjEvS0VLN3VwMzlNTjk4MmM4d0ZkNlE9PSByYWtlc2hrdW1hcm1hbGxhbUBSYWtlc2hzLU1hY0Jvb2stUHJvCg=="
+    # use the proprogation method as qemuGuestAgent if there is need for ssh key to be propogated into the live vm after the first boot.
+    propogationmethod: qemuGuestAgent # supported vaules qemuGuestAgent, configdrive
+    users: # users when qemu propogation is used
+      - rakesh
+
+service:
+  create: true
+  type: LoadBalancer  #  ClusterIP, NodePort, LoadBalancer, or ExternalName
+  ports:
+    - port: 8080
+      protocol: TCP
+
+# Node placement configuration
+# To use nodeSelector, uncomment and adjust the following:
+# nodeSelector: 
+#   site: primary  
+# 
+# To disable nodeSelector completely, use an empty map:
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+efsip: "" #update your efs ip here if you are using efs for storage.

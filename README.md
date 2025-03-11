@@ -127,6 +127,11 @@ Choose one or more nodes for primary sites and label them as primary:
 oc label node ip-10-0-47-116.us-east-2.compute.internal site=primary
 ```
 
+copy from primary to DR
+
+```
+ssh pydev@aacb75bd6fea848cc875fd8e873f7b04-237625449.us-east-2.elb.amazonaws.com "rsync -avz --timeout=10 /opt/efs/logs/requests.log pydev@a60e637e82e874d6b93c2ccb9056ad92-433074728.us-east-2.elb.amazonaws.com:/opt/efs/logs/"
+```
 ---
 
 <div align="center">
