@@ -1,34 +1,34 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: infra-application-set
+  name: virtualmachines-stretch-application-set
   namespace: openshift-gitops
 spec:
   generators:
-    - git:
-        repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        revision: HEAD
-        directories:
-          - path: "infrastructure/**"
+    - list:
+        elements:
+          - name: logger
+            valueFile: values.yaml
+            namespace: py-logger
+          - name: logger-dr
+            valueFile: values-dr.yaml
+            namespace: py-logger
   template:
     metadata:
-      name: '{{ path.basename }}'
+      name: '{{name}}'
     spec:
       project: default
       source:
         helm:
           valueFiles:
-          - values.yaml
+          - '{{valueFile}}'
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         targetRevision: HEAD
-        path: '{{ path }}'
+        path: '3az-cluster-pattern/helm/stretchtest'  # Path to your Helm chart
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ path.basename }}'
+        namespace: '{{namespace}}'
       syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
         syncOptions:
           - Validate=true
           - CreateNamespace=true
