@@ -7,7 +7,7 @@ spec:
   generators:
     - git:
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        revision: HEAD
+        revision: my-feature-branch  # Changed from HEAD to specific branch name
         directories:
           - path: "two-cluster-pattern/helm/**"
   template:
@@ -20,7 +20,7 @@ spec:
           valueFiles:
           - values.yaml
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        targetRevision: HEAD
+        targetRevision: restructure # Changed from HEAD to specific branch name
         path: '{{ path }}'
       destination:
         server: https://kubernetes.default.svc
