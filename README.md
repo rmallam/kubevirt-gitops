@@ -261,7 +261,8 @@ This will deploy both primary and DR site VMs with different configurations base
 ## Configuring EFS Mounts
 
 EFS storage is mounted at VM startup via cloud-init configurations. See `virtualmachines/rsyncapp/templates/cloud-init.yaml` for details.
-
+**primary** : sudo mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport 10.0.163.16:/ /opt/efs
+**secondary** : sudo mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport 10.0.57.188:/ /opt/efs
 ---
 
 <div align="center">

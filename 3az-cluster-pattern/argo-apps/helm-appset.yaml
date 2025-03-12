@@ -23,7 +23,7 @@ spec:
           valueFiles:
           - '{{valueFile}}'
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        targetRevision: HEAD
+        targetRevision: restructure
         path: '3az-cluster-pattern/helm/stretchtest'  # Path to your Helm chart
       destination:
         server: https://kubernetes.default.svc

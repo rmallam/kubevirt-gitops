@@ -7,7 +7,7 @@ spec:
   generators:
     - git:
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        revision: HEAD
+        revision: restructure
         directories:
           - path: "two-cluster-pattern/helm/**"
   template:
