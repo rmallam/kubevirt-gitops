@@ -132,6 +132,136 @@ copy from primary to DR
 ```
 ssh pydev@aacb75bd6fea848cc875fd8e873f7b04-237625449.us-east-2.elb.amazonaws.com "rsync -avz --timeout=10 /opt/efs/logs/requests.log pydev@a60e637e82e874d6b93c2ccb9056ad92-433074728.us-east-2.elb.amazonaws.com:/opt/efs/logs/"
 ```
+
+## 🔄  Architecture Overview  - Stretch Cluster Deployment
+
+This repository provides configurations for deploying VMs in a stretch cluster configuration, where VMs are specifically placed on nodes in primary or DR sites using node selectors.
+
+### Node Labeling for Stretch Clusters
+
+Before deploying VMs, ensure your nodes are properly labeled to indicate their site affinity:
+
+```bash
+# Label nodes for primary site
+oc label node <primary-node-name> site=primary
+
+# Label nodes for DR site
+oc label node <dr-node-name> site=dr
+```
+
+### Stretch Cluster Helm Chart
+
+The `stretchtest` Helm chart is designed specifically for stretch cluster deployments:
+
+```bash
+# Deploy the stretch cluster ApplicationSet
+oc apply -f argo-apps/stretch-virtualmachines-appset.yaml
+```
+
+This will create argo apps to deploy VMs to both primary and DR sites using the appropriate values files.
+
+### Sample Values Files
+
+The following values files demonstrate how to use nodeSelectors to target specific sites:
+
+#### Primary Site Configuration (values.yaml)
+
+```yaml
+# VM Configuration for Primary Site
+vmName: python-app-primary
+image: fedora
+cores: 2
+memory: 4Gi
+size: 30Gi
+nodeSelector:
+  site: primary
+```
+
+#### DR Site Configuration (values-dr.yaml)
+
+```yaml
+# VM Configuration for DR Site
+vmName: python-app-dr
+image: fedora
+cores: 1
+memory: 2Gi
+size: 30Gi
+nodeSelector:
+  site: dr
+standbyMode: true  # Indicates this is a standby VM
+```
+
+### Using NodeSelectors in VM Templates
+
+The VM templates in the Helm chart use these nodeSelector values to ensure VMs are scheduled on the appropriate nodes:
+
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: {{ .Values.vmName }}
+spec:
+  running: true
+  template:
+    spec:
+      domain:
+        // ...VM specs...
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+```
+
+This approach allows for a clear separation between primary and DR site VMs, making it easier to manage and maintain a resilient architecture.
+
+## Architecture Overview  - Split cluster
+
+The following diagram illustrates the cluster architecture with bidirectional rsync between primary and DR sites in a two cluster scenario:
+
+![Fedora VM with EFS DR Architecture](fedora_vm_with_efs_dr_architecture.png)
+
+### Key Components
+
+- **Python Application VMs**: Fedora VMs running Python applications
+  - Primary site: Active application serving requests
+  - DR site: Standby application that activates when primary is down
+
+- **RSYNC Service VMs**: Dedicated VMs that handle log synchronization
+  - Monitor log files using inotify for real-time change detection
+  - Bidirectional synchronization ensures both sites have updated logs
+  - Conflict resolution to handle concurrent writes
+
+- **External EFS Storage**: Provides persistent storage for logs
+  - Each site has its own EFS storage
+  - Logs written to EFS are synchronized between sites
+
+## Directory Structure
+
+- `/argo-apps`: ArgoCD ApplicationSet configurations
+- `/virtualmachines`: Helm charts for different VM configurations
+  - `/virtualmachines/rsyncapp`: Bidirectional rsync VM configuration
+  - `/virtualmachines/stretchtest`: Stretched application testing environment
+
+## Deployment Methods
+
+The VMs can be deployed using ArgoCD ApplicationSets. For example, to deploy the stretch cluster configuration:
+
+```bash
+kubectl apply -f argo-apps/stretch-virtualmachines-appset.yaml
+```
+
+This will deploy both primary and DR site VMs with different configurations based on their respective values files.
+
+## How Bidirectional Sync Works
+
+1. Python apps write logs to local EFS storage
+2. RSYNC VMs monitor log files for changes
+3. When changes are detected, logs are synchronized to the remote site
+4. Both sites maintain merged, deduplicated copies of all logs
+5. DR site can take over operations with all historical logs available
+
+## Configuring EFS Mounts
+
+EFS storage is mounted at VM startup via cloud-init configurations. See `virtualmachines/rsyncapp/templates/cloud-init.yaml` for details.
+
 ---
 
 <div align="center">
