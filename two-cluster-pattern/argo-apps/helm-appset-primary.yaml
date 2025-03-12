@@ -7,7 +7,7 @@ spec:
   generators:
     - git:
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        revision: my-feature-branch  # Changed from HEAD to specific branch name
+        revision: restructure  # Changed from HEAD to specific branch name
         directories:
           - path: "two-cluster-pattern/helm/**"
   template:
