@@ -9,7 +9,7 @@ spec:
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         revision: HEAD
         directories:
-          - path: "virtualmachines/**"
+          - path: "virtualmachines/*"
           - path: "virtualmachines/stretchtest/"
             exclude: true
   template:
