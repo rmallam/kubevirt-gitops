@@ -386,8 +386,8 @@ stringData:
       - pip3 install --upgrade pip
       - pip3 install werkzeug==2.0.3 flask==2.0.1
       
-      # Create initial empty log file in the persistent volume
-      - touch /opt/logs/requests.log
+      # Create initial empty log file in the persistent volume only if it doesn't exist
+      - if [ ! -f /opt/logs/requests.log ]; then touch /opt/logs/requests.log; fi
       - chown pydev:pydev /opt/logs/requests.log
       - chmod 644 /opt/logs/requests.log
       

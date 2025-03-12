@@ -1,0 +1,78 @@
+Slide 1: Title Slide
+- Title: "GitOps-Driven Disaster Recovery for OpenShift Virtualization"
+- Subtitle: "Automating VM Failover with a Single Click"
+
+Slide 2: Agenda
+- Introduction to GitOps
+- Two-Cluster DR Pattern
+- Multi-AZ Failover Pattern
+- Benefits & Implementation
+- Demo & Conclusion
+
+Slide 3: What is GitOps?
+- Definition: Infrastructure as code + declarative configuration + version control
+- Key principles: Git as single source of truth, declarative state, automated reconciliation
+- Tools: ArgoCD, OpenShift GitOps operator
+
+Slide 4: GitOps Benefits for Disaster Recovery
+- Consistency and reproducibility
+- Audit trails via Git history
+- Simplified rollback
+- Infrastructure as code
+- Reduced manual intervention
+
+Slide 5: Two-Cluster DR Pattern - Overview
+- Architecture diagram showing primary and DR OpenShift clusters
+- ArgoCD deployment across both clusters
+- VM resources managed through Git
+
+Slide 6: Two-Cluster DR Implementation
+- ApplicationSet for VM deployment
+- Selector-based targeting of specific cluster
+- Git repository structure
+- VM definition and configurations
+
+Slide 7: Two-Cluster DR - How It Works
+- Normal operations (VMs running on primary)
+- DR trigger process (changing Git configuration)
+- Automatic VM redeployment on DR cluster
+- Testing and validation
+
+Slide 8: Multi-AZ Pattern - Overview
+- Architecture diagram showing single cluster across 3 AZs
+- Node labels for AZ identification
+- Pod/VM placement strategy
+
+Slide 9: Multi-AZ Implementation
+- Node affinity rules in VM definitions
+- ApplicationSet for VM deployment
+- AZ-specific configurations
+- Topology spread constraints
+
+Slide 10: Multi-AZ Failover - How It Works
+- Normal operations (VMs distributed across AZs)
+- AZ failure scenario
+- GitOps-triggered reconfiguration
+- VM migration to available AZs
+
+Slide 11: Technical Implementation Details
+- Key YAML snippets
+- ApplicationSet generators
+- Repository structure
+- VM deployment configurations
+
+Slide 12: Demonstration
+- Sample Git repo structure
+- Key ArgoCD configurations
+- Failover process example
+
+Slide 13: Benefits & Conclusion
+- Reduced RTO and RPO
+- Simplified DR processes
+- Consistent deployment
+- Future improvements
+
+Slide 14: Q&A & Resources
+- GitHub repository link
+- Documentation references
+- Contact information

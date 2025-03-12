@@ -35,7 +35,7 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
-hostname: fedora-vm-DR-site
+hostname: logger-vm-DR-site
 ingress:
   enabled: false
   className: ""
