@@ -103,7 +103,7 @@ access:
 
 service:
   create: true
-  type: LoadBalancer  #  ClusterIP, NodePort, LoadBalancer, or ExternalName
+  type: ClusterIP  #  ClusterIP, NodePort, LoadBalancer, or ExternalName
   ports:
     - port: 8080
       protocol: TCP
