@@ -216,7 +216,7 @@ This approach allows for a clear separation between primary and DR site VMs, mak
 
 The following diagram illustrates the cluster architecture with bidirectional rsync between primary and DR sites in a two cluster scenario:
 
-![Fedora VM with EFS DR Architecture](fedora_vm_with_efs_dr_architecture.png)
+![Fedora VM with EFS DR Architecture](Stretch-architecture.png)
 
 ### Key Components
 
