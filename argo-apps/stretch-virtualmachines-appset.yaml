@@ -5,27 +5,29 @@ metadata:
   namespace: openshift-gitops
 spec:
   generators:
-    - git:
-        repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        revision: HEAD
-        directories:
-          - path: "virtualmachines/**"
-          - exclude: "virtualmachines/stretchtest/**"
+    - list:
+        elements:
+          - name: logger
+            values: values.yaml
+            namespace: py-logger
+          - name: logger
+            values: values-dr.yaml
+            namespace: py-logger
   template:
     metadata:
-      name: '{{ path.basename }}'
+      name: '{{name}}'
     spec:
       project: default
       source:
         helm:
           valueFiles:
-          - values.yaml
+          - '{{values}}'
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         targetRevision: HEAD
-        path: '{{ path }}'
+        path: 'virtualmachines/rsyncapp'  # Path to your Helm chart
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ path.basename }}'
+        namespace: '{{namespace}}'
       syncPolicy:
         syncOptions:
           - Validate=true
