@@ -111,7 +111,8 @@ service:
 # Node placement configuration
 # To use nodeSelector, uncomment and adjust the following:
 nodeSelector: 
-  beta.kubernetes.io/instance-type: m5.metal  
+  #beta.kubernetes.io/instance-type: m5.metal  
+  site: dr
 # 
 # To disable nodeSelector completely, use an empty map:
 #nodeSelector: {}
