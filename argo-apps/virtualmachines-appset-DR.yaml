@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: virtualmachines-application-set
+  name: virtualmachines-application-set-dr
   namespace: openshift-gitops
 spec:
   generators:
@@ -10,7 +10,8 @@ spec:
         revision: HEAD
         directories:
           - path: "virtualmachines/**"
-          - exclude: "virtualmachines/stretchtest/**"
+          - path: "virtualmachines/stretchtest/"
+            exclude: true
   template:
     metadata:
       name: '{{ path.basename }}'

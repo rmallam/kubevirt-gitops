@@ -10,7 +10,7 @@ spec:
           - name: logger
             values: values.yaml
             namespace: py-logger
-          - name: logger
+          - name: logger-dr
             values: values-dr.yaml
             namespace: py-logger
   template:
@@ -24,7 +24,7 @@ spec:
           - '{{values}}'
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         targetRevision: HEAD
-        path: 'virtualmachines/rsyncapp'  # Path to your Helm chart
+        path: 'virtualmachines/stretchtest'  # Path to your Helm chart
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'
