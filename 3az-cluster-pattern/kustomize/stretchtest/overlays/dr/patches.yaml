@@ -1,0 +1,15 @@
+# This file contains patches that would override or add to the base configuration
+# These would be equivalent to the settings in values-dr.yaml from the Helm chart
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: stretchtest-vm
+spec:
+  template:
+    spec:
+      domain:
+        # DR specific configurations
+        resources:
+          requests:
+            memory: 4Gi
+      # Add DR specific settings here

@@ -12,9 +12,9 @@ spec:
           - path: "two-cluster-pattern/helm/**"
   template:
     metadata:
-      name: '{{ path.basename }}'
+      name: 'two-cluster-pattern-{{ path.basename }}'
     spec:
-      project: default
+      project: two-cluster-dr
       source:
         helm:
           valueFiles:

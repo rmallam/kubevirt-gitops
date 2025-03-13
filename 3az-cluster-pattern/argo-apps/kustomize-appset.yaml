@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: virtualmachines-stretch-application-set
+  name: virtualmachines-stretch-kustomize-application-set
   namespace: openshift-gitops
 spec:
   generators:
     - list:
         elements:
-          - name: 3az-cluster-pattern-demo
-            valueFile: values-dr.yaml
+          - name: 3az-cluster-pattern-kustomize-demo
+            overlay: dr
             namespace: 3az-cluster-pattern
   template:
     metadata:
@@ -16,13 +16,9 @@ spec:
     spec:
       project: multiaz
       source:
-        helm:
-          valueFiles:
-          - values-common.yaml
-          - '{{valueFile}}'
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         targetRevision: restructure
-        path: '3az-cluster-pattern/helm/stretchtest'  # Path to your Helm chart
+        path: '3az-cluster-pattern/kustomize/stretchtest/overlays/{{overlay}}'
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'

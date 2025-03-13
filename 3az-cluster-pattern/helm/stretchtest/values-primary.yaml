@@ -1,3 +1,5 @@
+hostname:  logger-vm-primary-site
+
 # Node placement configuration
 # To use nodeSelector, uncomment and adjust the following:
 nodeSelector: 
