@@ -7,20 +7,18 @@ spec:
   generators:
     - list:
         elements:
-          - name: logger
-            valueFile: values.yaml
-            namespace: py-logger
-          - name: logger-dr
-            valueFile: values-dr.yaml
-            namespace: py-logger
+          - name: demo
+            valueFile: values-primary.yaml
+            namespace: 3az-cluster-pattern
   template:
     metadata:
       name: '{{name}}'
     spec:
-      project: default
+      project: 
       source:
         helm:
           valueFiles:
+          - values-common.yaml
           - '{{valueFile}}'
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
         targetRevision: restructure
