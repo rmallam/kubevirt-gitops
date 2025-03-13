@@ -1,3 +1,11 @@
+---
+# Source: virtualmachines/templates/vm-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: logger-vm
+---
+# Source: virtualmachines/templates/cloud-init.yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -249,7 +257,7 @@ stringData:
                   
                   <div class="info-item">
                       <span class="info-label">Hostname:</span> 
-                      <span>'{{ "{{" }} hostname {{ "}}" }}'</span>
+                      <span>'{{ hostname }}'</span>
                   </div>
                   
                   <div class="input-form">
@@ -262,7 +270,7 @@ stringData:
                   <h2>Last 100 HTTP Requests</h2>
                   <div class="log-container">
                   {% for log in logs %}
-                      <div class="log-entry">'{{ "{{" }} log {{ "}}" }}'</div>
+                      <div class="log-entry">'{{ log }}'</div>
                   {% endfor %}
                   </div>
                   
@@ -288,7 +296,7 @@ stringData:
 
     # Run commands to ensure proper setup
     runcmd:
-      - hostname {{ .Values.hostname }}
+      - hostname logger-vm-primary-site
       # Fix SSH permissions and restart SSH
       - systemctl restart sshd
       
@@ -304,7 +312,7 @@ stringData:
         systemctl start nfs-server
         
         # Try to mount the EFS share
-        if mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport {{ .Values.efsip }}:/ /opt/efs; then
+        if mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport :/ /opt/efs; then
           echo "EFS mount successful"
           
           # Create logs directory under EFS mount
@@ -352,19 +360,9 @@ stringData:
           
           echo "Selected log device: $LOG_DEVICE"
           
-          # # Format the disk if it's not already formatted
-          # if ! blkid $LOG_DEVICE | grep -q ext4; then
-          #   echo "Formatting $LOG_DEVICE with ext4"
-          #   mkfs.ext4 -F $LOG_DEVICE
-          # fi
-          
-          # Add entry to /etc/fstab for persistent mounting
-          if ! grep -q "$LOG_DEVICE" /etc/fstab; then
-            echo "$LOG_DEVICE /opt/logs ext4 defaults 0 0" >> /etc/fstab
-          fi
-          
-          # Mount the persistent volume
-          mount $LOG_DEVICE /opt/logs || mount -a
+          # Directly mount the PVC without formatting - PVCs are already formatted by Kubernetes
+          echo "Mounting $LOG_DEVICE to /opt/logs without formatting"
+          mount $LOG_DEVICE /opt/logs
           
           # Exit with error if mount failed
           if ! mount | grep -q "/opt/logs"; then
@@ -386,8 +384,8 @@ stringData:
       - pip3 install --upgrade pip
       - pip3 install werkzeug==2.0.3 flask==2.0.1
       
-      # Create initial empty log file in the persistent volume
-      - touch /opt/logs/requests.log
+      # Create initial empty log file in the persistent volume only if it doesn't exist
+      - if [ ! -f /opt/logs/requests.log ]; then touch /opt/logs/requests.log; fi
       - chown pydev:pydev /opt/logs/requests.log
       - chmod 644 /opt/logs/requests.log
       
@@ -412,3 +410,208 @@ stringData:
       - firewall-cmd --permanent --add-port=8080/tcp
       - firewall-cmd --permanent --add-port=22/tcp
       - firewall-cmd --reload
+---
+# Source: virtualmachines/templates/ssh-kubesecret.yaml
+kind: Secret
+apiVersion: v1
+metadata:
+  name: logger-vm
+data:
+  key: c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFDQVFEV1hJWW5lM0RIa3NvNk9aMEF4czhxWm1aSGRwR0srV21VbDlMSXRrWFFneWRDQmlnTzZzSGhkNHNYZkJLYzIwdFc4ZHJsbzF5SWI2K3ZLbUNIRk95My9lTDBkdklDUUNPSDNab1UybFJTRnNhTmpMeC9jb0V6YTlvVFQ4b3BKTVJsbTQrYTBGNlhEeGlUVTFlOEhkL2RjZTljSkhDbDRjbm15b0FtTWRuZVNlSTVUaWtaMzJZMVlXZndsb0xLR2dnTVZpcEVYYlhkdmc0TkZ1S0tzdEx2ODQzOFp0NmNzWVNOZUpmaDgzNXMza244akhVdHgrQmtaWDMzK00ybkJmcDFGZTFIYTVIMzJSelIwZkNzZTdTbG92R0JpQW50KzFsK2pwSzhzZkRzcm5LVVo3ZXU0dFFvVHN3NTdjSmN5Wk1TZ0EydSsxTVNEeHNla1lUQXlNMFB2US9OSkJ4L3o2NC9nZHNsUS95ZE5ETGZEclNiU1FjWEsxT1FTazRyRTViNHBDZUNwUDVibmFOakQ5ODZuc2JmNkZXMTh0dTVIUjRIOTVOV1dDbGJOVnBHT21uVG9Hc0pyYUZYbm5CNWgyS0ZkTnR1TitxRUZweUx3N1A4Ky9XZTBJdThGbWxIVWNTZGVVU21WTkxiSUdwNnlTNVR0QThDZFZFUGx5ZDFrcWdjLzAxLy9lalJUUUxXR0piY3ZaaUgySDczbUs0amk3UVVRSUtiYXRNWHNoZTBhaXBqd0FGRFJhUzJlM29KUjY4V0ZNYUh3TTlLMnJUZTRDbUZYQ1FycTNFM0ZWV1MrbjRldVZxYnk1NVorQURuK0swcVdQbFpjY2puMDU3SHY3bWVZTlkxMUs1cVFqdVlrTDFmTG00bjEvS0VLN3VwMzlNTjk4MmM4d0ZkNlE9PSByYWtlc2hrdW1hcm1hbGxhbUBSYWtlc2hzLU1hY0Jvb2stUHJvCg==
+type: Opaque
+---
+# Source: virtualmachines/templates/logs-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logger-vm-logs
+  labels:
+    app.kubernetes.io/name: logger-vm-logs
+    app.kubernetes.io/part-of: python-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # If you have a specific StorageClass, uncomment and specify it
+  # storageClassName: your-storage-class
+  # If you want to bind to a specific existing PV, uncomment and specify it
+    #volumeName: pvc-bd9573bd-f125-4143-87ad-d3048612f125
+---
+# Source: virtualmachines/templates/vm-serviceaccount.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: logger-vm
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+---
+# Source: virtualmachines/templates/vm-serviceaccount.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: logger-vm
+subjects:
+- kind: ServiceAccount
+  name: logger-vm
+roleRef:
+  kind: Role
+  name: logger-vm
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: virtualmachines/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: logger-vm
+  name: logger-vm
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP 
+  selector:
+    app: logger-vm
+  type: ClusterIP
+---
+# Source: virtualmachines/templates/ssh-service.yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: logger-vm-ssh
+  labels:
+    app: logger-vm
+spec:
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 22
+      targetPort: 22
+  selector:
+    app: logger-vm
+---
+# Source: virtualmachines/templates/route.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  labels:
+    app: logger-vm
+  name: logger-vm
+spec:
+  port:
+    targetPort: 8080
+  to:
+    kind: Service
+    name: logger-vm
+    weight: 100
+  wildcardPolicy: None
+---
+# Source: virtualmachines/templates/vmtemplate.yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    app: logger-vm
+    kubevirt.io/dynamic-credentials-support: 'true'
+  name: logger-vm
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[{"name":"bridge-network"}]'
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: logger-vm
+      spec:
+        preallocation: false
+        source:
+          http:
+            url: https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-UEFI-UKI.x86_64-40-1.14.qcow2
+        storage:
+          resources:
+            requests:
+              storage: 30Gi
+          storageClassName: gp3
+  running: true
+  template:
+    metadata:
+      annotations:
+        vm.kubevirt.io/flavor: small
+        vm.kubevirt.io/os: fedora
+        vm.kubevirt.io/workload: server
+      creationTimestamp: null
+      labels:
+        app: logger-vm
+        kubevirt.io/domain: logger-vm
+        kubevirt.io/size: small
+    spec:
+      # Add nodeSelector to select which nodes to schedule the VM on
+      nodeSelector:
+        # You can use values from the Helm chart
+        site: primary
+      accessCredentials:
+        - sshPublicKey:
+            propagationMethod:
+              qemuGuestAgent:
+                users:
+                  - rakesh
+            source:
+              secret:
+                secretName: logger-vm
+      architecture: amd64
+      domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+            - bootOrder: 1
+              disk:
+                bus: virtio
+              name: root-logger-vm
+            - bootOrder: 2
+              disk:
+                bus: virtio
+              name: cloudinitdisk
+            - disk:
+                bus: virtio
+              name: logs-disk
+          interfaces:
+            - masquerade: {}
+              model: virtio
+              name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        features:
+          acpi: {}
+          smm:
+            enabled: true
+        firmware:
+          bootloader:
+            efi: {}
+        machine:
+          type: pc-q35-rhel9.2.0
+        memory:
+          guest: 2Gi
+        resources: {}
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 180
+      volumes:
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            secretRef:
+              name: cloudsecret
+        - dataVolume:
+            name: logger-vm
+          name: root-logger-vm
+        - name: logs-disk
+          persistentVolumeClaim:
+            claimName: logger-vm-logs
