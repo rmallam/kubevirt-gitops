@@ -1,0 +1,15 @@
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  labels:
+    app: logger-vm
+  name: logger-vm
+spec:
+  port:
+    targetPort: 8080
+  to:
+    kind: Service
+    name: logger-vm
+    weight: 100
+  wildcardPolicy: None

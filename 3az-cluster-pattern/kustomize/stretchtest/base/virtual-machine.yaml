@@ -1,0 +1,103 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    app: logger-vm
+    kubevirt.io/dynamic-credentials-support: 'true'
+  name: logger-vm
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[{"name":"bridge-network"}]'
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: logger-vm
+      spec:
+        preallocation: false
+        source:
+          http:
+            url: https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-UEFI-UKI.x86_64-40-1.14.qcow2
+        storage:
+          resources:
+            requests:
+              storage: 30Gi
+          storageClassName: gp3
+  running: true
+  template:
+    metadata:
+      annotations:
+        vm.kubevirt.io/flavor: small
+        vm.kubevirt.io/os: fedora
+        vm.kubevirt.io/workload: server
+      creationTimestamp: null
+      labels:
+        app: logger-vm
+        kubevirt.io/domain: logger-vm
+        kubevirt.io/size: small
+    spec:
+      # Add nodeSelector to select which nodes to schedule the VM on
+      nodeSelector:
+        # You can use values from the Helm chart
+        site: primary
+      accessCredentials:
+        - sshPublicKey:
+            propagationMethod:
+              qemuGuestAgent:
+                users:
+                  - rakesh
+            source:
+              secret:
+                secretName: logger-vm
+      architecture: amd64
+      domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+            - bootOrder: 1
+              disk:
+                bus: virtio
+              name: root-logger-vm
+            - bootOrder: 2
+              disk:
+                bus: virtio
+              name: cloudinitdisk
+            - disk:
+                bus: virtio
+              name: logs-disk
+          interfaces:
+            - masquerade: {}
+              model: virtio
+              name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        features:
+          acpi: {}
+          smm:
+            enabled: true
+        firmware:
+          bootloader:
+            efi: {}
+        machine:
+          type: pc-q35-rhel9.2.0
+        memory:
+          guest: 2Gi
+        resources: {}
+      networks:
+        - name: default
+          pod: {}
+      terminationGracePeriodSeconds: 180
+      volumes:
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            secretRef:
+              name: cloudsecret
+        - dataVolume:
+            name: logger-vm
+          name: root-logger-vm
+        - name: logs-disk
+          persistentVolumeClaim:
+            claimName: logger-vm-logs

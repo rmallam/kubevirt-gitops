@@ -40,7 +40,7 @@ stringData:
     # Password authentication for SSH
     ssh_pwauth: true
 
-    # Configure users with proper password settings
+    # Configure users with proper password set  tings
     users:
       - name: rakesh
         sudo: ['ALL=(ALL) NOPASSWD:ALL']
