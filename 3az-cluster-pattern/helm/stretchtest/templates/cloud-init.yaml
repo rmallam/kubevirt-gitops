@@ -327,7 +327,6 @@ stringData:
       
       # Find the correct device for our persistent volume
       # In KubeVirt, devices are usually named /dev/vdX where X is a letter
-      # We need to find the one that's not already in use (not root and not cloud-init)
       - |
         # Only set up local storage if EFS mount failed
         if [ ! -d "/opt/efs/logs" ] || [ ! -L "/opt/logs" ]; then
@@ -352,19 +351,10 @@ stringData:
           
           echo "Selected log device: $LOG_DEVICE"
           
-          # Format the disk if it's not already formatted
-          if ! blkid $LOG_DEVICE | grep -q ext4; then
-            echo "Formatting $LOG_DEVICE with ext4"
-            mkfs.ext4 -F $LOG_DEVICE
-          fi
-          
-          # Add entry to /etc/fstab for persistent mounting
-          if ! grep -q "$LOG_DEVICE" /etc/fstab; then
-            echo "$LOG_DEVICE /opt/logs ext4 defaults 0 0" >> /etc/fstab
-          fi
-          
-          # Mount the persistent volume
-          mount $LOG_DEVICE /opt/logs || mount -a
+          # PVC is already provisioned and formatted by Kubernetes
+          # Directly mount the device without formatting
+          echo "Mounting $LOG_DEVICE to /opt/logs"
+          mount $LOG_DEVICE /opt/logs
           
           # Exit with error if mount failed
           if ! mount | grep -q "/opt/logs"; then
