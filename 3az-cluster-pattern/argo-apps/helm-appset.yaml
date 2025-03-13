@@ -14,7 +14,7 @@ spec:
     metadata:
       name: '{{name}}'
     spec:
-      project: 
+      project: multiaz
       source:
         helm:
           valueFiles:
