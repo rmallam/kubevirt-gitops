@@ -10,8 +10,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 5Gi
   # If you have a specific StorageClass, uncomment and specify it
-  # storageClassName: your-storage-class
+    storageClassName: efs-sc
   # If you want to bind to a specific existing PV, uncomment and specify it
     #volumeName: pvc-bd9573bd-f125-4143-87ad-d3048612f125
