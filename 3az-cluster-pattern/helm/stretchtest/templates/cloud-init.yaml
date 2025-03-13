@@ -352,9 +352,11 @@ stringData:
           
           echo "Selected log device: $LOG_DEVICE"
           
-          # Format the disk if it's not already formatted
-          if ! blkid $LOG_DEVICE | grep -q ext4; then
-            echo "Formatting $LOG_DEVICE with ext4"
+          # Check if the device already has a valid filesystem
+          if blkid $LOG_DEVICE && ! blkid -p $LOG_DEVICE | grep -q "no filesystem"; then
+            echo "Device $LOG_DEVICE already has a filesystem, skipping format"
+          else
+            echo "No valid filesystem detected on $LOG_DEVICE - formatting with ext4"
             mkfs.ext4 -F $LOG_DEVICE
           fi
           
