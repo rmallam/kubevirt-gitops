@@ -75,9 +75,6 @@ spec:
               name: cloudinitdisk
             - disk:
                 bus: virtio
-              name: kube-api-access-disk
-            - disk:
-                bus: virtio
               name: logs-disk
           interfaces:
             - masquerade: {}
@@ -109,9 +106,6 @@ spec:
         - dataVolume:
             name: {{ include "virtualmachines.fullname" . }}
           name: root-{{ include "virtualmachines.fullname" . }}
-        - name: kube-api-access-disk
-          serviceAccount:
-            serviceAccountName: {{ include "virtualmachines.fullname" . }}
         - name: logs-disk
           persistentVolumeClaim:
             claimName: {{ include "virtualmachines.fullname" . }}-logs
