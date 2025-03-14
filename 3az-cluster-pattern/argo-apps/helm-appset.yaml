@@ -8,7 +8,7 @@ spec:
     - list:
         elements:
           - name: 3az-cluster-pattern-demo
-            valueFile: values-dr.yaml
+            valueFile: values-primary.yaml
             namespace: 3az-cluster-pattern
   template:
     metadata:

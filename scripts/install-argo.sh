@@ -75,7 +75,7 @@ install_argo()
     
     # Step 1: Apply installation files
     log "Applying installation files from 'install-argocd/' directory"
-    oc apply -f install-argocd/ --recursive || { error "Failed to apply installation files"; exit 1; }
+    oc apply -f ../install-argocd/ --recursive || { error "Failed to apply installation files"; exit 1; }
     
     # Step 2: Wait for subscription to be ready
     log "Waiting for OpenShift GitOps operator subscription to be ready"
