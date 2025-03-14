@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: 3az-cluster-pattern-demo-app
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: 3az-cluster-pattern
+    server: https://kubernetes.default.svc
+  project: multiaz
+  source:
+    helm:
+      valueFiles:
+      - values-common.yaml
+      - values-primary.yaml
+    path: 3az-cluster-pattern/helm/stretchtest
+    repoURL: https://github.com/rmallam/kubevirt-gitops.git
+    targetRevision: restructure
+  syncPolicy:
+    syncOptions:
+    - Validate=true
+    - CreateNamespace=true

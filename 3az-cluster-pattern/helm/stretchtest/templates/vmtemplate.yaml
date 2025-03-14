@@ -22,7 +22,7 @@ spec:
             requests:
               storage: {{ .Values.source.storagesize }}
           storageClassName: {{ .Values.source.storageclass }}
-  running: true
+  runStrategy: Always
   template:
     metadata:
       annotations:
