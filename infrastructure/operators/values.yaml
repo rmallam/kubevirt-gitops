@@ -36,11 +36,11 @@ subscriptions:
     channel: stable
     source: redhat-operators
     enabled: true
-  - name: mtv-operator
+  - name: mtv-operator. #migration toolkit for virtualization
     namespace: openshift-mtv
     channel: release-v2.7
     source: redhat-operators
-    enabled: false
+    enabled: true
   - name: kubernetes-nmstate-operator ## NM state - provides declarative way of managing kube networks
     namespace: openshift-nmstate
     channel: stable
