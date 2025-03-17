@@ -86,3 +86,5 @@ hostedclusterocpvirt:
    enabled: false
 multiclusterhub:
    enabled: false
+forkliftcontroller:  # forklift controller required for Migration toolkit for virtualization.
+    enabled: true
