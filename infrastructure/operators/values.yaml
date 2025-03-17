@@ -40,7 +40,7 @@ subscriptions:
     namespace: openshift-mtv
     channel: stable
     source: redhat-operators
-    enabled: true
+    enabled: false
   - name: kubernetes-nmstate-operator ## NM state - provides declarative way of managing kube networks
     namespace: openshift-nmstate
     channel: stable
