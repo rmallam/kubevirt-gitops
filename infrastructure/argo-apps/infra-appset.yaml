@@ -20,7 +20,7 @@ spec:
           valueFiles:
           - values.yaml
         repoURL: https://github.com/rmallam/kubevirt-gitops.git
-        targetRevision: HEAD
+        targetRevision: restructure
         path: '{{ path }}'
       destination:
         server: https://kubernetes.default.svc
