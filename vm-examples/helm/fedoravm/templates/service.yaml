@@ -1,0 +1,14 @@
+{{- if eq .Values.service.create true }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ include "virtualmachines.fullname" . }}
+  name: {{ include "virtualmachines.fullname" . }}
+spec:
+  ports:
+{{- toYaml .Values.service.ports | nindent 4 }} 
+  selector:
+    app: {{ include "virtualmachines.fullname" . }}
+  type: {{ .Values.service.type }}
+{{- end -}}

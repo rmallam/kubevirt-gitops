@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudsecret
+  labels:
+    app.kubernetes.io/name: python-app-vm
+    app.kubernetes.io/part-of: python-app
+stringData:
+  userdata: |
+    #cloud-config
+    # Disable SELinux to avoid permission issues
+    bootcmd:
+    - setenforce 0
+
+    # Update system packages
+    package_update: true
+    package_upgrade: true
+    packages:
+      - git
+      - python3
+      - python3-pip
+      - python3-devel
+      - gcc
+      - firewalld
+      - openssh-server
+      - jq
+      - curl
+      - util-linux
+      - lsscsi
+      - nfs-utils  # Added for NFS/EFS mounting
+
+    # Password authentication for SSH
+    ssh_pwauth: true
+
+    # Configure users with proper password settings
+    users:
+      - name: rakesh
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/rakesh
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+      - name: pydev
+        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        groups: wheel
+        home: /home/pydev
+        shell: /bin/bash
+        lock_passwd: false
+        plain_text_passwd: 'rakesh'
+
+    # Ensure password auth works
+    chpasswd:
+      expire: false
+      list: |
+        rakesh:rakesh
+        pydev:rakesh
+    # Set permissions on /etc/ssh/sshd_config
+    write_files:
+      - path: /etc/ssh/sshd_config.d/allow_pw_auth.conf
+        content: |
+          PasswordAuthentication yes
+          PermitRootLogin yes
+
+    # Run commands to ensure proper setup
+    runcmd:
+      - hostname {{ .Values.hostname }}
+      # Fix SSH permissions and restart SSH
+      - systemctl restart sshd
+
+      # Open firewall port
+      - systemctl enable firewalld
+      - systemctl start firewalld
+      - firewall-cmd --permanent --add-port=8080/tcp
+      - firewall-cmd --permanent --add-port=22/tcp
+      - firewall-cmd --reload

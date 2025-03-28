@@ -1,0 +1,9 @@
+hostname:  logger-vm-dr-site
+# Node placement configuration
+# To use nodeSelector, uncomment and adjust the following:
+nodeSelector: 
+  #beta.kubernetes.io/instance-type: c6i.metal
+  site: dr
+# 
+# To disable nodeSelector completely, use an empty map:
+#nodeSelector: {}

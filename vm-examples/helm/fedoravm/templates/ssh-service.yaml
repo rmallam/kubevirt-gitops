@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "virtualmachines.fullname" . }}-ssh
+  labels:
+    app: {{ include "virtualmachines.fullname" . }}
+spec:
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 22
+      targetPort: 22
+  selector:
+    app: {{ include "virtualmachines.fullname" . }}

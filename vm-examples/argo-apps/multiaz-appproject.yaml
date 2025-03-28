@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: multiaz
+  namespace: openshift-gitops
+spec:
+  description: "MultiAZ Virtual Machine DR Project"
+  
+  # Project sources
+  sourceRepos:
+  - "https://github.com/rmallam/kubevirt-gitops.git"
+  - "*"  # Allow all repositories for flexibility
+  
+  # Destinations allowed for applications in this project
+  destinations:
+  - namespace: 3az-cluster-pattern
+    server: https://kubernetes.default.svc
+  - namespace: "*"
+    server: https://kubernetes.default.svc
+  
+  # Cluster resources that can be synchronized
+  clusterResourceWhitelist:
+  - group: "*"
+    kind: "*"
+  
+  # Namespace resources that can be synchronized
+  namespaceResourceWhitelist:
+  - group: "*"
+    kind: "*"
+  
+  # Roles for project membership
+  roles:
+  - name: project-admin
+    description: Project admin role
+    policies:
+    - p, proj:multiaz:project-admin, applications, *, multiaz/*, allow
