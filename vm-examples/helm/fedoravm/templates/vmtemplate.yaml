@@ -11,7 +11,7 @@ spec:
   dataVolumeTemplates:
     - metadata:
         creationTimestamp: null
-        name: root-{{ include "virtualmachines.fullname" . }}
+        name: {{ include "virtualmachines.fullname" . }}
       spec:
         preallocation: false
         source:
