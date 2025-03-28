@@ -9,4 +9,4 @@ hostname:  logger-vm-primary-site
 # To disable nodeSelector completely, use an empty map:
 #nodeSelector: {}
 
-runStrategy: Always #options: Halted, RerunOnFailure, Always, Manual
+runStrategy: Halted #options: Halted, RerunOnFailure, Always, Manual
