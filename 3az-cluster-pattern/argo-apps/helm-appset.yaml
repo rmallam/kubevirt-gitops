@@ -7,9 +7,12 @@ spec:
   generators:
     - list:
         elements:
-          - name: 3az-cluster-pattern-demo
+          - name: primary-site
             valueFile: values-primary.yaml
-            namespace: 3az-cluster-pattern
+            namespace: primary
+          - name: secondary-site
+            valueFile: values-dr.yaml
+            namespace: secondary
   template:
     metadata:
       name: '{{name}}'
@@ -17,6 +20,7 @@ spec:
       project: multiaz
       source:
         helm:
+          releaseName: multiaz-{{name}}
           valueFiles:
           - values-common.yaml
           - '{{valueFile}}'
