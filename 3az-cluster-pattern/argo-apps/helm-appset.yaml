@@ -9,10 +9,10 @@ spec:
         elements:
           - name: primary-site
             valueFile: values-primary.yaml
-            namespace: primary
+            namespace: drtest
           - name: secondary-site
             valueFile: values-dr.yaml
-            namespace: secondary
+            namespace: drtest
   template:
     metadata:
       name: '{{name}}'

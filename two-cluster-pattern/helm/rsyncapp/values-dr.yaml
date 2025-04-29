@@ -69,7 +69,7 @@ resources: {}
 source:
   url: 'https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-UEFI-UKI.x86_64-40-1.14.qcow2'
   storagesize: 30Gi
-  storageclass: gp3
+  storageclass: gp3-csi
   osflavor: fedora
   flavorsize: small #small , large, medium
 
@@ -120,7 +120,7 @@ tolerations: []
 
 affinity: {}
 
-efsip: "10.0.57.188" #update your efs ip here if you are using efs for storage.
+efsip: "10.0.128.218" #update your efs ip here if you are using efs for storage.
 rsyncUser: pydev
 rsyncHost: 
 rsyncRemotePath: /opt/efs/logs/
