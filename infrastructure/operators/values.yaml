@@ -30,7 +30,7 @@ subscriptions:
     namespace: open-cluster-management
     channel: release-2.10
     source: redhat-operators
-    enabled: false
+    enabled: true
   - name: kubevirt-hyperconverged
     namespace: openshift-cnv
     channel: stable
@@ -61,10 +61,15 @@ subscriptions:
     channel: v4
     source: community-operators
     enabled: false
+  - name: openebs ## Deploy Grafana
+    namespace: openshift-operators
+    channel: alpha
+    source: community-operators
+    enabled: false
 
 
 acm:  ## Deploy multiclusterhub CRD 
-  enabled: false
+  enabled: true
 acs:
   enabled: false
 sealedsecrets:

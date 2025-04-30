@@ -64,7 +64,7 @@ oc apply -f argo-apps/infra-appset.yaml
 Adding a baremetal machinepool for ROSA to run virtualization workloads:
 
 ```bash
-rosa create machinepools -c $(rosa list clusters | awk -F " " '{print $2}' | grep -v NAME) --instance-type c6i.metal --name virt-pool --replicas 3
+rosa create machinepools -c $(rosa list clusters | awk -F " " '{print $2}' | grep -v NAME) --instance-type m5.metal --name virt-pool --replicas 3
 ```
 
 ### EFS (Elastic File System)
@@ -269,6 +269,11 @@ EFS storage is mounted at VM startup via cloud-init configurations. See `virtual
 oc get node -l beta.kubernetes.io/instance-type=c6i.metal
 oc get node -l beta.kubernetes.io/instance-type=m5.metal
 ```
+To restart a VM through GITOPS, update the spec.running to false and argo-cd app to have selfHeal set to true
+```
+Set “/spec/running” value to “true/false”
+``` 
+
 
 <div align="center">
 <p>Made with ❤️ for the OpenShift & KubeVirt community</p>
