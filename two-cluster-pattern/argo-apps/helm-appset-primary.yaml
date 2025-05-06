@@ -12,7 +12,7 @@ spec:
           - path: "two-cluster-pattern/helm/**"
   template:
     metadata:
-      name: 'two-cluster-pattern-{{ path.basename }}'
+      name: '{{ path.basename }}'
     spec:
       project: two-cluster-dr
       source:
