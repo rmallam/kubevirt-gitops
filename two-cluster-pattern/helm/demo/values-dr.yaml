@@ -120,4 +120,4 @@ tolerations: []
 
 affinity: {}
 
-efsip: "10.0.128.218" #update your efs ip here if you are using efs for storage.
+efsip: "10.0.128.11" #update your efs ip here if you are using efs for storage.
