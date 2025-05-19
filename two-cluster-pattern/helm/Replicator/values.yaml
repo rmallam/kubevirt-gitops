@@ -120,7 +120,7 @@ tolerations: []
 
 affinity: {}
 
-efsip: "10.0.128.45" #update your efs ip here if you are using efs for storage.
+efsip: "10.0.12.45" #update your efs ip here if you are using efs for storage.
 rsyncUser: pydev
 rsyncHost: a585a29bda7ce40a0bc9803623ab1a1e-78730615.us-east-2.elb.amazonaws.com
 rsyncRemotePath: /opt/efs/logs/

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: primary-cluster-cm
+  namespace: openshift-gitops
+  labels:
+    cluster-type: primary-with-failover
+data:
+  # This ConfigMap will be populated by the ACM placement controller
+  # with the decision result from the placement
+  # No need to manually populate this ConfigMap

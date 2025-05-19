@@ -1,0 +1,13 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: PlacementDecision
+metadata:
+  name: primary-cluster-placement-decision
+  namespace: openshift-gitops
+  labels:
+    cluster-type: primary-with-failover
+  ownerReferences:
+    - apiVersion: cluster.open-cluster-management.io/v1beta1
+      kind: Placement
+      name: primary-cluster-placement
+    
+spec: {}

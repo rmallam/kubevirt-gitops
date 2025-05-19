@@ -1,0 +1,10 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: primar-placement
+  namespace: openshift-gitops
+  labels:
+    cluster-type: primary-with-failover
+spec:
+  clusterSets:
+    - primar

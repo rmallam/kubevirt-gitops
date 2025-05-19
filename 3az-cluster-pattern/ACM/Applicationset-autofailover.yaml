@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: twoclusterpattern
+  namespace: openshift-gitops
+spec:
+  generators:
+  - clusterDecisionResource:
+      configMapRef: acm-placement
+      labelSelector:
+        matchLabels:
+          cluster.open-cluster-management.io/placement: primar-placement
+      requeueAfterSeconds: 180
+  template:
+    metadata:
+      labels:
+        velero.io/exclude-from-backup: "true"
+      name: twoclusterpattern-{{name}}
+    spec:
+      destination:
+        namespace: demo
+        server: '{{server}}'
+      project: default
+      sources:
+      - path: two-cluster-pattern/helm/
+        repoURL: https://github.com/rmallam/kubevirt-gitops.git
+        targetRevision: restructure
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - PruneLast=true
